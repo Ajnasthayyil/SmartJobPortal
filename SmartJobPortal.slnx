@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SmartJobPortal.Application/SmartJobPortal.Application.csproj" />
+  <Project Path="SmartJobPortal.Domain/SmartJobPortal.Domain.csproj" />
+  <Project Path="SmartJobPortal.Infrastructure/SmartJobPortal.Infrastructure.csproj" />
+  <Project Path="SmartJobPortal/SmartJobPortal.API.csproj" />
+</Solution>
