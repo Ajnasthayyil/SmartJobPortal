@@ -60,6 +60,18 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    //GOOGLE LOGIN
+    [HttpPost("google-login")]
+    public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request)
+    {
+        var result = await _service.GoogleLoginAsync(request);
+
+        if (!result.Success)
+            return Unauthorized(result);
+
+        return Ok(result);
+    }
+
     //  REFRESH (FIXED)
     [HttpPost("refresh")]
     public async Task<IActionResult> RefreshToken()

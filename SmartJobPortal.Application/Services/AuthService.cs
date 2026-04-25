@@ -1,3 +1,4 @@
+using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using SmartJobPortal.Application.Common;
@@ -7,6 +8,8 @@ using SmartJobPortal.Domain.Entities;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Google.Apis.Auth;
+
 
 namespace SmartJobPortal.Application.Services;
 
@@ -171,4 +174,59 @@ public class AuthService : IAuthService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-}
+    public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request)
+    {
+        GoogleJsonWebSignature.Payload payload;
+
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken);
+        }
+        catch
+        {
+            return ApiResponse<AuthResponse>.FailureResponse(
+                new List<string> { "Invalid Google token" }
+            );
+        }
+
+        var email = payload.Email;
+        var name = payload.Name;
+
+        var user = await _repo.GetByEmailAsync(email);
+
+        if (user == null)
+        {
+            var roleId = await _repo.GetRoleIdByName("Candidate");
+
+            user = new User
+            {
+                FullName = name,
+                Email = email,
+                PasswordHash = "", // not required
+                RoleId = roleId
+            };
+
+            await _repo.CreateUserAsync(user);
+        }
+
+        var accessToken = GenerateJwtToken(user);
+        var refreshToken = GenerateRefreshToken();
+
+        await _repo.SaveRefreshToken(
+            user.UserId,
+            refreshToken,
+            DateTime.UtcNow.AddDays(
+                Convert.ToDouble(_config["Jwt:RefreshTokenExpiryDays"])
+            )
+        );
+
+        return ApiResponse<AuthResponse>.SuccessResponse(
+            new AuthResponse
+            {
+                Token = accessToken,
+                RefreshToken = refreshToken
+            },
+            "Google login successful"
+        );
+    }
+    }
