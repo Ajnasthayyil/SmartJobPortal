@@ -23,6 +23,7 @@ public class CandidateRepository : ICandidateRepository
     {
         using var conn = _factory.CreateConnection();
         return await conn.ExecuteScalarAsync<int>("""
+            SET NOCOUNT ON;
             MERGE Candidates AS target
             USING (SELECT @UserId AS UserId) AS source
                 ON target.UserId = source.UserId

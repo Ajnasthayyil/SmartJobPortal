@@ -71,7 +71,8 @@ public class CandidateService : ICandidateService
         candidate.ExperienceYears = request.ExperienceYears;
         candidate.UpdatedAt = DateTime.Now;
 
-        var candidateId = await _candidateRepo.UpsertAsync(candidate);
+        var upsertedId = await _candidateRepo.UpsertAsync(candidate);
+        var candidateId = candidate.CandidateId > 0 ? candidate.CandidateId : upsertedId;
         candidate.CandidateId = candidateId;
 
         // Resolve skill names → IDs, create if new

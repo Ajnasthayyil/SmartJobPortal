@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.DTOs.Recruiter;
@@ -12,10 +12,12 @@ namespace SmartJobPortal.API.Controllers;
 public class RecruiterController : ControllerBase
 {
     private readonly IRecruiterService _recruiterService;
+    private readonly IResumeService _resumeService;
 
-    public RecruiterController(IRecruiterService recruiterService)
+    public RecruiterController(IRecruiterService recruiterService, IResumeService resumeService)
     {
         _recruiterService = recruiterService;
+        _resumeService = resumeService;
     }
 
     private int UserId =>
@@ -116,5 +118,15 @@ public class RecruiterController : ControllerBase
         var result = await _recruiterService
             .UpdateApplicationStatusAsync(UserId, applicationId, request);
         return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpGet("candidates/{candidateUserId:int}/resume")]
+    public async Task<IActionResult> DownloadResume(int candidateUserId)
+    {
+        var file = await _resumeService.GetResumeFileAsync(candidateUserId);
+        if (file == null)
+            return NotFound(new { message = "Resume not found" });
+
+        return File(file.Value.bytes, file.Value.contentType, file.Value.fileName);
     }
 }

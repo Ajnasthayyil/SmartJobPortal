@@ -18,7 +18,7 @@ public class UserRepository : IUserRepository
     {
         using var connection = _factory.CreateConnection();
 
-        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName
+        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
                     FROM Users u
                     INNER JOIN Roles r ON u.RoleId = r.RoleId
                     WHERE u.Email = @Email";
@@ -30,7 +30,7 @@ public class UserRepository : IUserRepository
     {
         using var connection = _factory.CreateConnection();
 
-        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName
+        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
                     FROM Users u
                     INNER JOIN Roles r ON u.RoleId = r.RoleId
                     WHERE u.UserId = @UserId";
@@ -59,9 +59,9 @@ public class UserRepository : IUserRepository
         using var connection = _factory.CreateConnection();
 
         var sql = @"INSERT INTO Users 
-                    (FullName, Email, PasswordHash, PhoneNumber, RoleId, IsActive, IsApproved, CreatedAt)
+                    (FullName, Email, PasswordHash, PhoneNumber, RoleId, IsActive, IsApproved, CreatedAt, ProfilePictureUrl)
                     VALUES 
-                    (@FullName, @Email, @PasswordHash, @PhoneNumber, @RoleId, @IsActive, @IsApproved, @CreatedAt)";
+                    (@FullName, @Email, @PasswordHash, @PhoneNumber, @RoleId, @IsActive, @IsApproved, @CreatedAt, @ProfilePictureUrl)";
 
         await connection.ExecuteAsync(sql, user);
     }
@@ -91,5 +91,12 @@ public class UserRepository : IUserRepository
 
         using var connection = _factory.CreateConnection();
         await connection.ExecuteAsync(sql, new { Token = token });
+    }
+
+    public async Task UpdateProfilePictureAsync(int userId, string url)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = "UPDATE Users SET ProfilePictureUrl = @Url WHERE UserId = @UserId";
+        await connection.ExecuteAsync(sql, new { Url = url, UserId = userId });
     }
 }

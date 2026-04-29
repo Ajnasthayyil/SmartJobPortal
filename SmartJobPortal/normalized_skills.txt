@@ -1,0 +1,1 @@
+Angular, Typescript, Javascript, Html, Css, Tailwind Css, Angular Material, Rxjs, ASP.NET Core, C#, Rest Apis, Jwt Authentication, Linq, Sql Server, Entity Framework, Ado.Net, Git, Github, Swagger, Visual Studio, Vs Code, Ssms, Oop, Clean Architecture, Agile/Scrum, Performance Optimization, Team Collaboration, Problem Solving, Adaptability, Time Management, Leadership

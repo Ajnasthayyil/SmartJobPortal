@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Dapper;
 using SmartJobPortal.Application.DTOs.Recruiter;
 using SmartJobPortal.Application.Interfaces;
@@ -149,6 +149,7 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 c.CandidateId,
                 u.FullName,
                 u.Email,
+                u.UserId AS CandidateUserId,
                 c.Location,
                 c.ExperienceYears,
                 a.Status,

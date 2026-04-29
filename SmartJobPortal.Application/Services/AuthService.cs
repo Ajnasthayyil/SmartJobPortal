@@ -8,7 +8,7 @@ using SmartJobPortal.Domain.Entities;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Google.Apis.Auth;
+
 
 
 namespace SmartJobPortal.Application.Services;
@@ -56,7 +56,7 @@ public class AuthService : IAuthService
             PhoneNumber = request.PhoneNumber!,
             RoleId = roleId,
             IsActive = true,
-            IsApproved = true,
+            IsApproved = request.Role != "Recruiter", // Recruiters need admin approval
             CreatedAt = DateTime.UtcNow
         };
 
@@ -75,6 +75,15 @@ public class AuthService : IAuthService
             return ApiResponse<AuthResponse>.FailureResponse(
                 new List<string> { "Invalid email or password" },
                 "Authentication Failed"
+            );
+        }
+
+        if (user.RoleName == "Recruiter" && !user.IsApproved)
+        {
+            return ApiResponse<AuthResponse>.FailureResponse(
+                new List<string> { "Your application is under process. The response will inform you soon." },
+                "Account Pending Approval",
+                403
             );
         }
 
@@ -159,7 +168,8 @@ public class AuthService : IAuthService
         {
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.RoleName ?? "")
+            new Claim(ClaimTypes.Role, user.RoleName ?? ""),
+            new Claim("profilePictureUrl", user.ProfilePictureUrl ?? "")
         };
 
         var token = new JwtSecurityToken(

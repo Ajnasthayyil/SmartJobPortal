@@ -4,5 +4,5 @@ namespace SmartJobPortal.Application.Interfaces;
 
 public interface IResumeParserService
 {
-    Task<ResumeDto?> ParseResumeAsync(string filePath, string contentType);
+    Task<ResumeDto?> ParseResumeAsync(string resumeText);
 }

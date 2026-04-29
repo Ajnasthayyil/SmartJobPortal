@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Recruiter;
 using SmartJobPortal.Application.Interfaces;
@@ -280,6 +280,15 @@ public class RecruiterService : IRecruiterService
 
         // Attach match scores from MatchScores table
         await AttachMatchScoresAsync(applicants, jobId);
+
+        // Populate ResumeUrl
+        foreach (var a in applicants)
+        {
+            if (a.HasResume)
+            {
+                a.ResumeUrl = $"/api/recruiter/candidates/{a.CandidateUserId}/resume";
+            }
+        }
 
         return ApiResponse<List<ApplicantResponse>>.Ok(applicants);
     }

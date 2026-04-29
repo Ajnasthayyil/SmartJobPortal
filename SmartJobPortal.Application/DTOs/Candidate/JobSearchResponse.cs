@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Application.DTOs.Candidate;
+namespace SmartJobPortal.Application.DTOs.Candidate;
 
 public class JobSearchResponse
 {
@@ -28,6 +28,6 @@ public class JobDetail : JobListItem
 {
     public string Description { get; set; } = string.Empty;
     public DateTime? ExpiresAt { get; set; }
-    public MatchScoreResponse? MatchScore { get; set; }
-    public new decimal? MatchScoreValue { get; set; }
+    public new MatchScoreResponse? MatchScore { get; set; }
+    public decimal? MatchScoreValue { get; set; }
 }

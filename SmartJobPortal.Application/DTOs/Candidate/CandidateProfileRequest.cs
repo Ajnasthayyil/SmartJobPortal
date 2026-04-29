@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace SmartJobPortal.Application.DTOs.Candidate;
 
@@ -19,6 +19,10 @@ public class CandidateProfileRequest
     public int ExperienceYears { get; set; }
 
     public List<SkillRequest> Skills { get; set; } = new();
+
+    public List<EducationRequest> Education { get; set; } = new();
+
+    public List<WorkExperienceRequest> WorkExperience { get; set; } = new();
 }
 
 public class SkillRequest
@@ -28,4 +32,20 @@ public class SkillRequest
     public string SkillName { get; set; } = string.Empty;
 
     public string Level { get; set; } = "Intermediate"; // Beginner | Intermediate | Expert
+}
+
+public class EducationRequest
+{
+    public string Degree { get; set; } = string.Empty;
+    public string Institution { get; set; } = string.Empty;
+    public string FieldOfStudy { get; set; } = string.Empty;
+    public string Duration { get; set; } = string.Empty;
+}
+
+public class WorkExperienceRequest
+{
+    public string Company { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public string Duration { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 }

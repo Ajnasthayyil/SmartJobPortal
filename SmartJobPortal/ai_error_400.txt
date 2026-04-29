@@ -1,0 +1,15 @@
+Mscc.GenerativeAI.Types.GeminiApiTimeoutException: The request retry logic has timed out. Last API response:
+{
+  "error": {
+    "code": 503,
+    "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+    "status": "UNAVAILABLE"
+  }
+}
+
+ ---> System.TimeoutException: The operation has timed out.
+   --- End of inner exception stack trace ---
+   at Mscc.GenerativeAI.BaseModel.SendAsync(HttpRequestMessage request, RequestOptions requestOptions, CancellationToken cancellationToken, HttpCompletionOption completionOption)
+   at Mscc.GenerativeAI.GenerativeModel.GenerateContent(GenerateContentRequest request, RequestOptions requestOptions, CancellationToken cancellationToken)
+   at Mscc.GenerativeAI.GenerativeModel.GenerateContent(String prompt, GenerationConfig generationConfig, List`1 safetySettings, Tools tools, ToolConfig toolConfig, RequestOptions requestOptions, CancellationToken cancellationToken)
+   at SmartJobPortal.Infrastructure.Services.ResumeParserService.ParseResumeAsync(String resumeText) in C:\Users\user\source\repos\SmartJobPortal\SmartJobPortal.Infrastructure\Services\ResumeParserService.cs:line 47

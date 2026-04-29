@@ -1,9 +1,7 @@
 using System.Text.RegularExpressions;
-using DocumentFormat.OpenXml.Packaging;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
 using Microsoft.Extensions.Configuration;
 using Mscc.GenerativeAI;
+using Mscc.GenerativeAI.Types;
 using Newtonsoft.Json;
 using SmartJobPortal.Application.DTOs.Candidate;
 using SmartJobPortal.Application.Interfaces;
@@ -19,101 +17,49 @@ public class ResumeParserService : IResumeParserService
         _config = config;
     }
 
-    public async Task<ResumeDto?> ParseResumeAsync(string filePath, string contentType)
+    public async Task<ResumeDto?> ParseResumeAsync(string resumeText)
     {
         try
         {
-            // 1. Extract Text
-            string resumeText = contentType switch
-            {
-                "application/pdf" => ExtractTextFromPdf(filePath),
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ExtractTextFromDocx(filePath),
-                _ => throw new Exception("Unsupported file format for parsing")
-            };
+            var apiKey = _config["AI:ApiKey"];
+            var googleAI = new GoogleAI(apiKey);
 
+            // Use the most reliable model for 2026 Free Tier
+            var model = googleAI.GenerativeModel("gemini-2.5-flash");
+
+            // REMOVE config if it's causing 400, or simplify it
+            // Some library versions fail if you set ResponseMimeType here.
+            var config = new GenerationConfig { Temperature = 0.1f };
+
+            // Ensure text isn't empty and isn't too long
             if (string.IsNullOrWhiteSpace(resumeText)) return null;
+            string safeText = resumeText.Length > 8000 ? resumeText.Substring(0, 8000) : resumeText;
 
-            // 2. Call AI (Gemini)
-            return await ParseWithGeminiAsync(resumeText);
+            // We move the JSON instruction into the prompt for maximum compatibility
+            var prompt = $@"
+Return a JSON object ONLY. Do not include markdown or explanations.
+Fields: fullName, email, phone, skills (array), totalExperience (number), education (array), workExperience (array).
+
+Resume:
+{safeText}";
+
+            // Call without the complex config if 400 persists
+            var response = await model.GenerateContent(prompt, config);
+            var raw = response.Text;
+
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+
+            // Robust JSON Extraction
+            var jsonMatch = Regex.Match(raw, @"\{[\s\S]*\}");
+            if (!jsonMatch.Success) return null;
+
+            return JsonConvert.DeserializeObject<ResumeDto>(jsonMatch.Value);
         }
         catch (Exception ex)
         {
-            // In a real app, log this
-            Console.WriteLine($"Parsing Error: {ex.Message}");
+            // Check this file! If it says "INVALID_ARGUMENT", your prompt is the problem.
+            await File.WriteAllTextAsync("ai_error_400.txt", ex.ToString());
             return null;
         }
-    }
-
-    private string ExtractTextFromPdf(string path)
-    {
-        using (var reader = new PdfReader(path))
-        using (var pdfDoc = new PdfDocument(reader))
-        {
-            var text = new System.Text.StringBuilder();
-            for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
-            {
-                text.Append(PdfTextExtractor.GetTextFromPage(pdfDoc.GetPage(i)));
-            }
-            return text.ToString();
-        }
-    }
-
-    private string ExtractTextFromDocx(string path)
-    {
-        using (var wordDoc = WordprocessingDocument.Open(path, false))
-        {
-            var body = wordDoc.MainDocumentPart?.Document.Body;
-            return body?.InnerText ?? string.Empty;
-        }
-    }
-
-    private async Task<ResumeDto?> ParseWithGeminiAsync(string resumeText)
-    {
-        var apiKey = _config["AI:ApiKey"];
-        if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_API_KEY_HERE")
-            throw new Exception("Gemini API Key is not configured.");
-
-        var googleAI = new GoogleAI(apiKey);
-        var model = googleAI.GenerativeModel("gemini-1.5-flash");
-
-        var prompt = $@"
-You are an AI Resume Parser.
-
-Extract structured information from the resume text provided below.
-
-Return ONLY valid JSON. Do NOT include explanations.
-
-Required fields:
-- fullName (string)
-- email (string)
-- phone (string)
-- skills (array of strings)
-- totalExperience (number in years, approximate if needed)
-- education (array of objects with degree, institution, year)
-- workExperience (array of objects with company, role, duration, description)
-
-Rules:
-- Extract accurate and relevant data only
-- If data is missing, return null or empty array
-- Skills should be normalized (e.g., 'ASP.NET Core', 'Angular', 'SQL Server')
-- Remove duplicates in skills
-- Experience should be calculated based on work history
-
-Resume Text:
-""""""
-{resumeText}
-""""""
-";
-
-        var response = await model.GenerateContent(prompt);
-        var jsonResponse = response.Text;
-
-        if (string.IsNullOrEmpty(jsonResponse)) return null;
-
-        // Clean JSON response (sometimes AI adds markdown blocks)
-        jsonResponse = Regex.Replace(jsonResponse, "```json", "", RegexOptions.IgnoreCase);
-        jsonResponse = Regex.Replace(jsonResponse, "```", "", RegexOptions.IgnoreCase).Trim();
-
-        return JsonConvert.DeserializeObject<ResumeDto>(jsonResponse);
     }
 }

@@ -84,9 +84,11 @@ builder.Services.AddScoped<IDbConnectionFactory>(sp =>
     new DbConnectionFactory(builder.Configuration));
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<IResumeService, ResumeService>();
-builder.Services.AddScoped<IResumeParserService, ResumeParserService>();
+
 builder.Services.AddScoped<IJobSearchService, JobSearchService>();
 builder.Services.AddScoped<IMatchScoreService, MatchScoreService>();
+builder.Services.AddScoped<IPhotoService, PhotoService>();
+builder.Services.AddScoped<IResumeParserService, ResumeParserService>();
 //  Recruiter module 
 builder.Services.AddScoped<IRecruiterRepository, RecruiterRepository>();
 builder.Services.AddScoped<IRecruiterJobRepository, RecruiterJobRepository>();

@@ -1,0 +1,50 @@
+{
+  "fullName": "AJNAS T",
+  "email": "ajnasthayyil123@gmail.com",
+  "phone": "+91 7025882784",
+  "skills": [
+    "Angular",
+    "TypeScript",
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "Tailwind CSS",
+    "Angular Material",
+    "RxJS",
+    ".NET Core",
+    "C#",
+    "REST APIs",
+    "JWT Authentication",
+    "LINQ",
+    "SQL Server",
+    "SQL",
+    "Entity Framework",
+    "ADO.NET",
+    "Git",
+    "GitHub",
+    "Swagger",
+    "Visual Studio",
+    "VS Code",
+    "SSMS",
+    "OOP",
+    "Clean Architecture",
+    "Agile/Scrum",
+    "Performance Optimization"
+  ],
+  "totalExperience": 1,
+  "education": [
+    {
+      "degree": "MSc. Computer Science",
+      "institution": "Mahatma Gandi University, Kottayam",
+      "year": "2020 – 2022"
+    }
+  ],
+  "workExperience": [
+    {
+      "company": "Bridgeon Solutions LLP, Calicut",
+      "role": "Full Stack Developer Intern",
+      "duration": "Aug 2025 – Present",
+      "description": "Developed and maintained 30+ RESTful APIs using ASP.NET Core and C#. Optimized SQL queries, improving database performance by up to 30%. Designed and managed SQL Server tables for efficient data storage. Integrated backend APIs with Angular for seamless data communication. Built reusable and responsive UI components using Angular and Tailwind CSS. Implemented JWT-based authentication to enhance API security."
+    }
+  ]
+}

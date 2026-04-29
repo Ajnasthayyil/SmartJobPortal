@@ -12,4 +12,5 @@ public class User
     public bool IsApproved { get; set; }
     public DateTime CreatedAt { get; set; }
     public string RoleName { get; set; } = string.Empty;
+    public string? ProfilePictureUrl { get; set; }
 }
