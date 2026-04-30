@@ -138,6 +138,14 @@ public class JobRepository : IJobRepository
             new { JobId = jobId });
     }
 
+    public async Task<string?> GetTitleAsync(int jobId)
+    {
+        using var conn = _factory.CreateConnection();
+        return await conn.ExecuteScalarAsync<string?>(
+            "SELECT Title FROM Jobs WHERE JobId = @JobId",
+            new { JobId = jobId });
+    }
+
     public async Task<List<JobListItem>> GetBySkillsAsync(List<string> skills)
     {
         if (skills == null || !skills.Any()) return new List<JobListItem>();

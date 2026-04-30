@@ -52,7 +52,7 @@ public class ResumeService : IResumeService
             if (candidate == null)
                 return ApiResponse<ResumeParseResponse>.Fail("Complete your profile before uploading a resume.");
 
-            // ✅ Save file
+            // Save file
             Directory.CreateDirectory(_uploadPath);
             var ext = Path.GetExtension(file.FileName);
             var fileName = $"{userId}_{DateTime.Now:yyyyMMddHHmmss}{ext}";
@@ -61,7 +61,7 @@ public class ResumeService : IResumeService
             await using (var stream = File.Create(fullPath))
                 await file.CopyToAsync(stream);
 
-            // ✅ Extract text
+            // Extract text
             string resumeText = file.ContentType switch
             {
                 "application/pdf" => ExtractTextFromPdf(fullPath),
@@ -73,7 +73,7 @@ public class ResumeService : IResumeService
             if (string.IsNullOrWhiteSpace(resumeText))
                 return ApiResponse<ResumeParseResponse>.Fail("Could not extract text from resume.");
 
-            // ✅ AI Parsing
+            // AI Parsing
             var parsedData = await _parser.ParseResumeAsync(resumeText);
 
             if (parsedData == null)
@@ -82,12 +82,12 @@ public class ResumeService : IResumeService
                 return ApiResponse<ResumeParseResponse>.Fail("AI could not parse the resume.");
             }
 
-            // ✅ Null safety
+            // Null safety
             parsedData.Skills ??= new List<string>();
             parsedData.Education ??= new List<EducationDto>();
             parsedData.WorkExperience ??= new List<ExperienceDto>();
 
-            // ✅ Normalize skills
+            // Normalize skills
             var normalizedSkills = parsedData.Skills
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .Select(NormalizeSkill)
@@ -96,7 +96,7 @@ public class ResumeService : IResumeService
 
             File.WriteAllText("normalized_skills.txt", string.Join(", ", normalizedSkills));
 
-            // ✅ Save Skills
+            // Save Skills
             var existingSkills = await _candidateRepo.GetSkillsAsync(candidate.CandidateId);
             var existingIds = existingSkills.Select(s => s.SkillId).ToHashSet();
             var newRows = new List<CandidateSkill>(existingSkills);
@@ -121,7 +121,7 @@ public class ResumeService : IResumeService
 
             await _candidateRepo.ReplaceSkillsAsync(candidate.CandidateId, newRows);
 
-            // ✅ Education & Experience
+            // Education & Experience
             await _candidateRepo.ClearEducationAndExperienceAsync(candidate.CandidateId);
 
             var education = parsedData.Education.Select(e => new CandidateEducation
@@ -145,7 +145,7 @@ public class ResumeService : IResumeService
 
             await _candidateRepo.AddExperienceAsync(experience);
 
-            // ✅ Profile update
+            // Profile update
             candidate.ExperienceYears = parsedData.TotalExperience > 0
                 ? (int)Math.Round(parsedData.TotalExperience)
                 : 0;
@@ -163,11 +163,11 @@ public class ResumeService : IResumeService
 
             await _candidateRepo.UpsertAsync(candidate);
 
-            // ✅ Job matching
+            // Job matching
             var recommendedJobs = await _jobSearchService
                 .RecommendJobsBySkillsAsync(userId, normalizedSkills);
 
-            // ✅ Clear cache
+            // Clear cache
             await _cache.RemoveAsync($"candidate:profile:{userId}");
 
             File.WriteAllText("parsed_result.json",
@@ -187,7 +187,7 @@ public class ResumeService : IResumeService
         }
     }
 
-    // ✅ REQUIRED METHODS (FIXED YOUR ERROR)
+    // REQUIRED METHODS (FIXED YOUR ERROR)
 
     public async Task<(byte[] bytes, string contentType, string fileName)?> GetResumeFileAsync(int userId)
     {
@@ -236,7 +236,7 @@ public class ResumeService : IResumeService
         return ApiResponse<bool>.Ok(true);
     }
 
-    // ───────── HELPERS ─────────
+    //  HELPERS 
 
     private string ExtractTextFromPdf(string path)
     {

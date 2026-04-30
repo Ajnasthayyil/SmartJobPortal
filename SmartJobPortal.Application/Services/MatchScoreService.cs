@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Candidate;
 using SmartJobPortal.Application.Interfaces;
@@ -130,10 +130,12 @@ public class MatchScoreService : IMatchScoreService
             .ToHashSet();
 
         var missing = JsonSerializer.Deserialize<List<string>>(score.MissingSkills) ?? new();
+        var jobTitle = await _jobRepo.GetTitleAsync(jobId) ?? string.Empty;
 
         return new MatchScoreResponse
         {
             JobId = jobId,
+            JobTitle = jobTitle,
             TotalScore = score.TotalScore,
             SkillScore = score.SkillScore,
             ExperienceScore = score.ExperienceScore,

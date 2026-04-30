@@ -9,5 +9,6 @@ public interface IJobRepository
     Task<List<string>> GetSkillNamesAsync(int jobId);
     Task<int> GetMinExperienceAsync(int jobId);
     Task<string?> GetLocationAsync(int jobId);
+    Task<string?> GetTitleAsync(int jobId);
     Task<List<JobListItem>> GetBySkillsAsync(List<string> skills);
 }
