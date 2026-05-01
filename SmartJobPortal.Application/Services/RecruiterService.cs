@@ -262,6 +262,27 @@ public class RecruiterService : IRecruiterService
         return ApiResponse<string>.Ok("Job deactivated successfully.");
     }
 
+    public async Task<ApiResponse<string>> ToggleJobStatusAsync(int userId, int jobId)
+    {
+        var recruiter = await _recruiterRepo.GetByUserIdAsync(userId);
+        if (recruiter == null)
+            return ApiResponse<string>.NotFound("Recruiter profile not found.");
+
+        if (!await _jobRepo.JobBelongsToRecruiterAsync(jobId, recruiter.RecruiterId))
+            return ApiResponse<string>.Fail(
+                "You do not have permission to modify this job.", 403);
+
+        var toggled = await _jobRepo.ToggleJobStatusAsync(jobId, recruiter.RecruiterId);
+        if (!toggled)
+            return ApiResponse<string>.NotFound("Job not found.");
+
+        // Bust caches
+        await _cache.RemoveAsync($"recruiter:jobs:{recruiter.RecruiterId}");
+        await _cache.RemoveAsync($"job:{jobId}");
+
+        return ApiResponse<string>.Ok("Job status toggled successfully.");
+    }
+
     //  Applicants 
 
     public async Task<ApiResponse<List<ApplicantResponse>>> GetApplicantsAsync(

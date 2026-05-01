@@ -1,4 +1,4 @@
-﻿using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Recruiter;
 
 namespace SmartJobPortal.Application.Interfaces;
@@ -17,6 +17,7 @@ public interface IRecruiterService
     Task<ApiResponse<JobResponse>> UpdateJobAsync(int userId, int jobId,
         UpdateJobRequest request);
     Task<ApiResponse<string>> DeleteJobAsync(int userId, int jobId);
+    Task<ApiResponse<string>> ToggleJobStatusAsync(int userId, int jobId);
 
     // Applicants
     Task<ApiResponse<List<ApplicantResponse>>> GetApplicantsAsync(int userId, int jobId);

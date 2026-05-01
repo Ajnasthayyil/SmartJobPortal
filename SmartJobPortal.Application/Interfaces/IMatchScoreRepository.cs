@@ -1,4 +1,4 @@
-﻿using SmartJobPortal.Domain.Entities;
+using SmartJobPortal.Domain.Entities;
 
 namespace SmartJobPortal.Application.Interfaces;
 

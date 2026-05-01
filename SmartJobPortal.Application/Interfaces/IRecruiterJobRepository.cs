@@ -1,4 +1,4 @@
-﻿using SmartJobPortal.Application.DTOs.Recruiter;
+using SmartJobPortal.Application.DTOs.Recruiter;
 using SmartJobPortal.Domain.Entities;
 
 namespace SmartJobPortal.Application.Interfaces;
@@ -9,6 +9,7 @@ public interface IRecruiterJobRepository
     Task<int> CreateJobAsync(Job job);
     Task<bool> UpdateJobAsync(Job job);
     Task<bool> SoftDeleteJobAsync(int jobId, int recruiterId);
+    Task<bool> ToggleJobStatusAsync(int jobId, int recruiterId);
     Task<Job?> GetJobByIdAsync(int jobId);
     Task<List<JobResponse>> GetJobsByRecruiterIdAsync(int recruiterId);
     Task<bool> JobBelongsToRecruiterAsync(int jobId, int recruiterId);

@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Domain.Entities;
 using SmartJobPortal.Infrastructure.Data;

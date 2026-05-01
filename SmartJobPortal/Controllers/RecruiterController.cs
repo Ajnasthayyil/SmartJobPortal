@@ -88,6 +88,13 @@ public class RecruiterController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpPatch("jobs/{jobId:int}/toggle-status")]
+    public async Task<IActionResult> ToggleJobStatus(int jobId)
+    {
+        var result = await _recruiterService.ToggleJobStatusAsync(UserId, jobId);
+        return StatusCode(result.StatusCode, result);
+    }
+
     //  Applicants 
 
     /// View all applicants for a job with match scores
