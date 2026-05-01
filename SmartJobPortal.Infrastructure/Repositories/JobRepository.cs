@@ -82,10 +82,23 @@ public class JobRepository : IJobRepository
         var total = await conn.ExecuteScalarAsync<int>(countSql, p);
         var jobs = (await conn.QueryAsync<JobListItem>(dataSql, p)).ToList();
 
-        // Attach required skills to each job
-        foreach (var job in jobs)
+        if (jobs.Any())
         {
-            job.RequiredSkills = await GetSkillNamesAsync(job.JobId);
+            var jobIds = jobs.Select(j => j.JobId).ToList();
+            var allSkills = await conn.QueryAsync<(int JobId, string Name)>(@"
+                SELECT js.JobId, s.Name
+                FROM JobSkills js
+                INNER JOIN Skills s ON s.SkillId = js.SkillId
+                WHERE js.JobId IN @JobIds", new { JobIds = jobIds });
+
+            var skillMap = allSkills
+                .GroupBy(x => x.JobId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
+
+            foreach (var job in jobs)
+            {
+                job.RequiredSkills = skillMap.ContainsKey(job.JobId) ? skillMap[job.JobId] : new List<string>();
+            }
         }
 
         return (jobs, total);

@@ -46,10 +46,13 @@ public class CandidateService : ICandidateService
             });
         }
 
-        var skills = await _candidateRepo.GetSkillsAsync(candidate.CandidateId);
-        var education = await _candidateRepo.GetEducationAsync(candidate.CandidateId);
-        var experience = await _candidateRepo.GetExperienceAsync(candidate.CandidateId);
-        var response = BuildResponse(candidate, user, skills, education, experience);
+        var skillsTask = _candidateRepo.GetSkillsAsync(candidate.CandidateId);
+        var eduTask    = _candidateRepo.GetEducationAsync(candidate.CandidateId);
+        var expTask    = _candidateRepo.GetExperienceAsync(candidate.CandidateId);
+
+        await Task.WhenAll(skillsTask, eduTask, expTask);
+
+        var response = BuildResponse(candidate, user, skillsTask.Result, eduTask.Result, expTask.Result);
 
         await _cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(30));
         return ApiResponse<CandidateProfileResponse>.Ok(response);

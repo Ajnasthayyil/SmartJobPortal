@@ -94,10 +94,23 @@ public class RecruiterJobRepository : IRecruiterJobRepository
             ORDER BY j.PostedAt DESC
             """, new { RecruiterId = recruiterId })).ToList();
 
-        // Attach required skills to each job
-        foreach (var job in jobs)
+        if (jobs.Any())
         {
-            job.RequiredSkills = await GetSkillNamesByJobIdAsync(job.JobId);
+            var jobIds = jobs.Select(j => j.JobId).ToList();
+            var allSkills = await conn.QueryAsync<(int JobId, string Name)>(@"
+                SELECT js.JobId, s.Name
+                FROM JobSkills js
+                INNER JOIN Skills s ON s.SkillId = js.SkillId
+                WHERE js.JobId IN @JobIds", new { JobIds = jobIds });
+
+            var skillMap = allSkills
+                .GroupBy(x => x.JobId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
+
+            foreach (var job in jobs)
+            {
+                job.RequiredSkills = skillMap.ContainsKey(job.JobId) ? skillMap[job.JobId] : new List<string>();
+            }
         }
 
         return jobs;
@@ -157,35 +170,34 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 a.AppliedAt,
                 CASE WHEN c.ResumeFilePath IS NOT NULL THEN 1 ELSE 0 END AS HasResume,
                 c.ResumeOriginalName,
-                -- Match score fields (LEFT JOIN — may be null if not calculated yet)
+                -- Match score fields
                 ms.TotalScore,
                 ms.SkillScore,
                 ms.ExperienceScore,
                 ms.LocationScore,
-                ms.MissingSkills
+                ms.MissingSkills AS MissingSkillsJson
             FROM Applications a
             INNER JOIN Candidates c ON c.CandidateId = a.CandidateId
             INNER JOIN Users      u ON u.UserId       = c.UserId
             LEFT  JOIN MatchScores ms
                 ON ms.CandidateId = c.CandidateId
-               AND ms.JobId       = a.JobId
+                AND ms.JobId       = a.JobId
             WHERE a.JobId = @JobId
             ORDER BY a.AppliedAt DESC
             """, new { JobId = jobId })).ToList();
 
-        // Attach candidate skills + deserialise MissingSkills JSON
-        foreach (var applicant in applicants)
+        if (applicants.Any())
         {
-            applicant.Skills = await GetCandidateSkillNamesAsync(applicant.CandidateId);
-
-            // MissingSkills comes from DB as a JSON string — deserialise it
-            if (!string.IsNullOrEmpty(
-                    await GetMissingSkillsJsonAsync(applicant.CandidateId, jobId)))
-            {
-                var json = await GetMissingSkillsJsonAsync(applicant.CandidateId, jobId);
-                applicant.MissingSkills =
-                    JsonSerializer.Deserialize<List<string>>(json ?? "[]") ?? new();
-            }
+            var tasks = applicants.Select(async applicant => {
+                applicant.Skills = await GetCandidateSkillNamesAsync(applicant.CandidateId);
+                
+                // Deserialise MissingSkills from the JSON column we already fetched
+                var json = (applicant as dynamic).MissingSkillsJson as string;
+                if (!string.IsNullOrEmpty(json)) {
+                    applicant.MissingSkills = JsonSerializer.Deserialize<List<string>>(json) ?? new();
+                }
+            });
+            await Task.WhenAll(tasks);
         }
 
         return applicants;
