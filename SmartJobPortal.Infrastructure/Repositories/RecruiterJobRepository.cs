@@ -251,9 +251,9 @@ public class RecruiterJobRepository : IRecruiterJobRepository
         using var conn = _factory.CreateConnection();
         // Verify the application belongs to a job owned by this recruiter
         var rows = await conn.ExecuteAsync("""
-            UPDATE a
-            SET a.Status    = @Status,
-                a.UpdatedAt = GETDATE()
+            UPDATE Applications
+            SET Status    = @Status,
+                UpdatedAt = GETDATE()
             FROM Applications a
             INNER JOIN Jobs j
                 ON j.JobId = a.JobId
