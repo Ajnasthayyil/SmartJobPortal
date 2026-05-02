@@ -22,6 +22,8 @@ public class ApplicantResponse
     public decimal? SkillScore { get; set; }
     public decimal? ExperienceScore { get; set; }
     public decimal? LocationScore { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? MissingSkillsJson { get; set; }
     public List<string> MissingSkills { get; set; } = new();
 
     public string ScoreLabel => TotalScore switch

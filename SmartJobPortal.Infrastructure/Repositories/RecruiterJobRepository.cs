@@ -224,7 +224,7 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                     a.Skills = skills;
 
                 // Parse the JSON we fetched in the main query
-                var json = (a as dynamic).MissingSkillsJson;
+                var json = a.MissingSkillsJson;
                 if (!string.IsNullOrEmpty(json))
                 {
                     a.MissingSkills = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
