@@ -107,10 +107,28 @@ public class RecruiterJobRepository : IRecruiterJobRepository
             ORDER BY j.PostedAt DESC
             """, new { RecruiterId = recruiterId })).ToList();
 
-        // Attach required skills to each job
-        foreach (var job in jobs)
+        if (jobs.Any())
         {
-            job.RequiredSkills = await GetSkillNamesByJobIdAsync(job.JobId);
+            var jobIds = jobs.Select(j => j.JobId).ToList();
+            var skillsSql = """
+                SELECT js.JobId, s.Name
+                FROM JobSkills js
+                INNER JOIN Skills s ON s.SkillId = js.SkillId
+                WHERE js.JobId IN @JobIds
+                """;
+            var allSkills = await conn.QueryAsync<(int JobId, string Name)>(skillsSql, new { JobIds = jobIds });
+            
+            var skillMap = allSkills
+                .GroupBy(x => x.JobId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
+
+            foreach (var job in jobs)
+            {
+                if (skillMap.TryGetValue(job.JobId, out var skills))
+                    job.RequiredSkills = skills;
+                else
+                    job.RequiredSkills = new List<string>();
+            }
         }
 
         return jobs;
@@ -175,7 +193,7 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 ms.SkillScore,
                 ms.ExperienceScore,
                 ms.LocationScore,
-                ms.MissingSkills
+                ms.MissingSkills AS MissingSkillsJson
             FROM Applications a
             INNER JOIN Candidates c ON c.CandidateId = a.CandidateId
             INNER JOIN Users      u ON u.UserId       = c.UserId
@@ -186,18 +204,31 @@ public class RecruiterJobRepository : IRecruiterJobRepository
             ORDER BY a.AppliedAt DESC
             """, new { JobId = jobId })).ToList();
 
-        // Attach candidate skills + deserialise MissingSkills JSON
-        foreach (var applicant in applicants)
+        if (applicants.Any())
         {
-            applicant.Skills = await GetCandidateSkillNamesAsync(applicant.CandidateId);
+            var candidateIds = applicants.Select(a => a.CandidateId).ToList();
+            var skillsSql = """
+                SELECT cs.CandidateId, s.Name
+                FROM CandidateSkills cs
+                INNER JOIN Skills s ON s.SkillId = cs.SkillId
+                WHERE cs.CandidateId IN @CandidateIds
+                """;
+            var allSkills = await conn.QueryAsync<(int CandidateId, string Name)>(skillsSql, new { CandidateIds = candidateIds });
+            var skillMap = allSkills
+                .GroupBy(x => x.CandidateId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
 
-            // MissingSkills comes from DB as a JSON string — deserialise it
-            if (!string.IsNullOrEmpty(
-                    await GetMissingSkillsJsonAsync(applicant.CandidateId, jobId)))
+            foreach (var a in applicants)
             {
-                var json = await GetMissingSkillsJsonAsync(applicant.CandidateId, jobId);
-                applicant.MissingSkills =
-                    JsonSerializer.Deserialize<List<string>>(json ?? "[]") ?? new();
+                if (skillMap.TryGetValue(a.CandidateId, out var skills))
+                    a.Skills = skills;
+
+                // Parse the JSON we fetched in the main query
+                var json = (a as dynamic).MissingSkillsJson;
+                if (!string.IsNullOrEmpty(json))
+                {
+                    a.MissingSkills = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+                }
             }
         }
 

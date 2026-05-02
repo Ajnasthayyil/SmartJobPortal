@@ -169,10 +169,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
-builder.Services.AddStackExchangeRedisCache(opts =>
-{
-    opts.Configuration = builder.Configuration.GetConnectionString("Redis");
-});
+// Use Distributed Memory Cache instead of Redis for easier local setup
+// This provides immediate speed optimization without requiring external services
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
 
 var app = builder.Build();

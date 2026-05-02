@@ -17,4 +17,5 @@ public interface ICandidateRepository
     Task ClearEducationAndExperienceAsync(int candidateId);
     Task<List<CandidateEducation>> GetEducationAsync(int candidateId);
     Task<List<CandidateExperience>> GetExperienceAsync(int candidateId);
+    Task<(List<CandidateSkill> skills, List<CandidateEducation> education, List<CandidateExperience> experience)> GetFullProfileDataAsync(int candidateId);
 }

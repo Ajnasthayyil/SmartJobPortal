@@ -82,32 +82,78 @@ public class JobRepository : IJobRepository
         var total = await conn.ExecuteScalarAsync<int>(countSql, p);
         var jobs = (await conn.QueryAsync<JobListItem>(dataSql, p)).ToList();
 
-        // Attach required skills to each job
-        foreach (var job in jobs)
+        if (jobs.Any())
         {
-            job.RequiredSkills = await GetSkillNamesAsync(job.JobId);
+            var jobIds = jobs.Select(j => j.JobId).ToList();
+            var skillsSql = """
+                SELECT js.JobId, s.Name
+                FROM JobSkills js
+                INNER JOIN Skills s ON s.SkillId = js.SkillId
+                WHERE js.JobId IN @JobIds
+                """;
+            var allSkills = await conn.QueryAsync<(int JobId, string Name)>(skillsSql, new { JobIds = jobIds });
+            
+            var skillMap = allSkills
+                .GroupBy(x => x.JobId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
+
+            foreach (var job in jobs)
+            {
+                if (skillMap.TryGetValue(job.JobId, out var skills))
+                    job.RequiredSkills = skills;
+                else
+                    job.RequiredSkills = new List<string>();
+            }
         }
 
         return (jobs, total);
     }
 
-    public async Task<JobDetail?> GetDetailAsync(int jobId)
+    public async Task<List<JobDetail>> GetDetailsAsync(List<int> jobIds)
     {
+        if (jobIds == null || !jobIds.Any()) return new List<JobDetail>();
+
         using var conn = _factory.CreateConnection();
-        var job = await conn.QuerySingleOrDefaultAsync<JobDetail>("""
+        var jobs = (await conn.QueryAsync<JobDetail>("""
             SELECT
                 j.JobId, j.Title, j.Description, r.CompanyName,
                 j.Location, j.JobType, j.MinSalary, j.MaxSalary,
                 j.MinExperienceYears, j.PostedAt, j.ExpiresAt
             FROM Jobs j
             INNER JOIN Recruiters r ON r.RecruiterId = j.RecruiterId
-            WHERE j.JobId = @JobId AND j.IsActive = 1
-            """, new { JobId = jobId });
+            WHERE j.JobId IN @JobIds AND j.IsActive = 1
+            """, new { JobIds = jobIds })).ToList();
 
-        if (job != null)
-            job.RequiredSkills = await GetSkillNamesAsync(jobId);
+        if (jobs.Any())
+        {
+            var skillsSql = """
+                SELECT js.JobId, s.Name
+                FROM JobSkills js
+                INNER JOIN Skills s ON s.SkillId = js.SkillId
+                WHERE js.JobId IN @JobIds
+                """;
+            var allSkills = await conn.QueryAsync<(int JobId, string Name)>(skillsSql, new { JobIds = jobs.Select(j => j.JobId).ToList() });
+            
+            var skillMap = allSkills
+                .GroupBy(x => x.JobId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
 
-        return job;
+            foreach (var job in jobs)
+            {
+                if (skillMap.TryGetValue(job.JobId, out var skills))
+                    job.RequiredSkills = skills;
+                else
+                    job.RequiredSkills = new List<string>();
+            }
+        }
+
+        return jobs;
+    }
+
+    public async Task<JobDetail?> GetDetailAsync(int jobId)
+    {
+        var results = await GetDetailsAsync(new List<int> { jobId });
+        return results.FirstOrDefault();
     }
 
     public async Task<List<string>> GetSkillNamesAsync(int jobId)

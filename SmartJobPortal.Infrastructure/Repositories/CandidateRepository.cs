@@ -152,4 +152,36 @@ public class CandidateRepository : ICandidateRepository
             """, new { CandidateId = candidateId });
         return rows.ToList();
     }
+
+    public async Task<(List<CandidateSkill> skills, List<CandidateEducation> education, List<CandidateExperience> experience)> GetFullProfileDataAsync(int candidateId)
+    {
+        using var conn = _factory.CreateConnection();
+        var sql = """
+            -- Skills
+            SELECT cs.CandidateSkillId, cs.CandidateId, cs.SkillId, cs.Level, s.Name AS SkillName, s.Category
+            FROM CandidateSkills cs
+            INNER JOIN Skills s ON s.SkillId = cs.SkillId
+            WHERE cs.CandidateId = @CandidateId;
+
+            -- Education
+            SELECT EducationId, CandidateId, Degree, Institution, GraduationYear
+            FROM CandidateEducation
+            WHERE CandidateId = @CandidateId
+            ORDER BY EducationId DESC;
+
+            -- Experience
+            SELECT ExperienceId, CandidateId, Company, Role, Duration, Description
+            FROM CandidateExperience
+            WHERE CandidateId = @CandidateId
+            ORDER BY ExperienceId DESC;
+            """;
+
+        using var multi = await conn.QueryMultipleAsync(sql, new { CandidateId = candidateId });
+        
+        var skills = (await multi.ReadAsync<CandidateSkill>()).ToList();
+        var education = (await multi.ReadAsync<CandidateEducation>()).ToList();
+        var experience = (await multi.ReadAsync<CandidateExperience>()).ToList();
+
+        return (skills, education, experience);
+    }
 }

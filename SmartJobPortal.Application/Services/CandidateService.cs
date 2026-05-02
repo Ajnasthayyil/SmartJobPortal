@@ -46,9 +46,7 @@ public class CandidateService : ICandidateService
             });
         }
 
-        var skills = await _candidateRepo.GetSkillsAsync(candidate.CandidateId);
-        var education = await _candidateRepo.GetEducationAsync(candidate.CandidateId);
-        var experience = await _candidateRepo.GetExperienceAsync(candidate.CandidateId);
+        var (skills, education, experience) = await _candidateRepo.GetFullProfileDataAsync(candidate.CandidateId);
         var response = BuildResponse(candidate, user, skills, education, experience);
 
         await _cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(30));
