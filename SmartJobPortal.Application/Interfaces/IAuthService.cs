@@ -9,4 +9,5 @@ public interface IAuthService
     Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request);
     Task<ApiResponse<AuthResponse>> RefreshTokenAsync(string refreshToken);
     Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request);
+    Task RevokeTokenAsync(string refreshToken);
 }

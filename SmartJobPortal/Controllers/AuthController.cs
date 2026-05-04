@@ -17,24 +17,20 @@ public class AuthController : ControllerBase
     //  COOKIE METHOD (ONLY ONE)
     private void SetTokenCookie(string token, string refreshToken)
     {
-        Response.Cookies.Append("AuthToken", token, new CookieOptions
+        var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddMinutes(30)
-        });
-
-        Response.Cookies.Append("RefreshToken", refreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
+            Secure = false, // Set to true in production with HTTPS
+            SameSite = SameSiteMode.Lax,
             Expires = DateTime.UtcNow.AddDays(7)
-        });
+        };
+
+        Response.Cookies.Append("AuthToken", token, cookieOptions);
+        Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
     }
 
     //  REGISTER
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
@@ -47,6 +43,7 @@ public class AuthController : ControllerBase
     }
 
     //  LOGIN
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
     {
@@ -61,18 +58,22 @@ public class AuthController : ControllerBase
     }
 
     //GOOGLE LOGIN
+    [AllowAnonymous]
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request)
     {
         var result = await _service.GoogleLoginAsync(request);
 
-        if (!result.Success)
+        if (!result.Success || result.Data == null)
             return Unauthorized(result);
+
+        SetTokenCookie(result.Data.Token!, result.Data.RefreshToken!);
 
         return Ok(result);
     }
 
     //  REFRESH (FIXED)
+    [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> RefreshToken()
     {
@@ -102,11 +103,17 @@ public class AuthController : ControllerBase
     //  LOGOUT
     [AllowAnonymous]
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout()
     {
+        var refreshToken = Request.Cookies["RefreshToken"];
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            await _service.RevokeTokenAsync(refreshToken);
+        }
+
         Response.Cookies.Delete("AuthToken");
         Response.Cookies.Delete("RefreshToken");
 
-        return Ok(new { message = "Logged out successfully" });
+        return Ok(new { success = true, message = "Logged out successfully" });
     }
 }

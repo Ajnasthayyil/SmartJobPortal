@@ -67,15 +67,16 @@ public class UserRepository : IUserRepository
     }
     public async Task SaveRefreshToken(int userId, string token, DateTime expiry)
     {
-        var sql = @"INSERT INTO RefreshTokens (UserId, Token, ExpiryDate)
-                VALUES (@UserId, @Token, @ExpiryDate)";
+        var sql = @"INSERT INTO RefreshTokens (UserId, Token, ExpiryDate, CreatedAt, IsRevoked)
+                VALUES (@UserId, @Token, @ExpiryDate, @CreatedAt, 0)";
 
         using var connection = _factory.CreateConnection();
         await connection.ExecuteAsync(sql, new
         {
             UserId = userId,
             Token = token,
-            ExpiryDate = expiry
+            ExpiryDate = expiry,
+            CreatedAt = DateTime.UtcNow
         });
     }
     public async Task<RefreshToken?> GetRefreshToken(string token)

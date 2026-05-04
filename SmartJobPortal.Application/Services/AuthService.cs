@@ -9,8 +9,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-
-
 namespace SmartJobPortal.Application.Services;
 
 public class AuthService : IAuthService
@@ -120,13 +118,22 @@ public class AuthService : IAuthService
             );
         }
 
-        //  FIX: Fetch user
+        //  Fetch user
         var user = await _repo.GetByIdAsync(storedToken.UserId);
 
-        if (user == null)
+        if (user == null || !user.IsActive)
         {
             return ApiResponse<AuthResponse>.FailureResponse(
-                new List<string> { "User not found. Login required." }
+                new List<string> { "User account is inactive or not found. Login required." }
+            );
+        }
+
+        if (user.RoleName == "Recruiter" && !user.IsApproved)
+        {
+            return ApiResponse<AuthResponse>.FailureResponse(
+                new List<string> { "Your account is pending approval." },
+                "Access Denied",
+                403
             );
         }
 
@@ -184,6 +191,7 @@ public class AuthService : IAuthService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
     public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request)
     {
         GoogleJsonWebSignature.Payload payload;
@@ -239,4 +247,9 @@ public class AuthService : IAuthService
             "Google login successful"
         );
     }
+
+    public async Task RevokeTokenAsync(string refreshToken)
+    {
+        await _repo.RevokeRefreshToken(refreshToken);
     }
+}
