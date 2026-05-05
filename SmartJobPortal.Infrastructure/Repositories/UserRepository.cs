@@ -16,14 +16,22 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetByEmailAsync(string email)
     {
-        using var connection = _factory.CreateConnection();
+        try
+        {
+            using var connection = _factory.CreateConnection();
 
-        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
-                    FROM Users u
-                    INNER JOIN Roles r ON u.RoleId = r.RoleId
-                    WHERE u.Email = @Email";
+            var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
+                        FROM Users u
+                        INNER JOIN Roles r ON u.RoleId = r.RoleId
+                        WHERE u.Email = @Email";
 
-        return await connection.QueryFirstOrDefaultAsync<User>(sql, new { Email = email });
+            return await connection.QueryFirstOrDefaultAsync<User>(sql, new { Email = email });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Database Error] GetByEmailAsync failed for {email}: {ex.Message}");
+            throw;
+        }
     }
 
     public async Task<User?> GetByIdAsync(int id)
@@ -67,16 +75,15 @@ public class UserRepository : IUserRepository
     }
     public async Task SaveRefreshToken(int userId, string token, DateTime expiry)
     {
-        var sql = @"INSERT INTO RefreshTokens (UserId, Token, ExpiryDate, CreatedAt, IsRevoked)
-                VALUES (@UserId, @Token, @ExpiryDate, @CreatedAt, 0)";
+        var sql = @"INSERT INTO RefreshTokens (UserId, Token, ExpiryDate)
+                VALUES (@UserId, @Token, @ExpiryDate)";
 
         using var connection = _factory.CreateConnection();
         await connection.ExecuteAsync(sql, new
         {
             UserId = userId,
             Token = token,
-            ExpiryDate = expiry,
-            CreatedAt = DateTime.UtcNow
+            ExpiryDate = expiry
         });
     }
     public async Task<RefreshToken?> GetRefreshToken(string token)

@@ -9,6 +9,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
+
+
 namespace SmartJobPortal.Application.Services;
 
 public class AuthService : IAuthService
@@ -66,44 +68,56 @@ public class AuthService : IAuthService
     //  LOGIN
     public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request)
     {
-        var user = await _repo.GetByEmailAsync(request.Email!);
-
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        try
         {
-            return ApiResponse<AuthResponse>.FailureResponse(
-                new List<string> { "Invalid email or password" },
-                "Authentication Failed"
-            );
-        }
+            var user = await _repo.GetByEmailAsync(request.Email!);
 
-        if (user.RoleName == "Recruiter" && !user.IsApproved)
-        {
-            return ApiResponse<AuthResponse>.FailureResponse(
-                new List<string> { "Your application is under process. The response will inform you soon." },
-                "Account Pending Approval",
-                403
-            );
-        }
-
-        var accessToken = GenerateJwtToken(user);
-        var refreshToken = GenerateRefreshToken();
-
-        await _repo.SaveRefreshToken(
-            user.UserId,
-            refreshToken,
-            DateTime.UtcNow.AddDays(
-                Convert.ToDouble(_config["Jwt:RefreshTokenExpiryDays"])
-            )
-        );
-
-        return ApiResponse<AuthResponse>.SuccessResponse(
-            new AuthResponse
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                Token = accessToken,
-                RefreshToken = refreshToken
-            },
-            "Login successful"
-        );
+                return ApiResponse<AuthResponse>.FailureResponse(
+                    new List<string> { "Invalid email or password" },
+                    "Authentication Failed"
+                );
+            }
+
+            if (user.RoleName == "Recruiter" && !user.IsApproved)
+            {
+                return ApiResponse<AuthResponse>.FailureResponse(
+                    new List<string> { "Your application is under process. The response will inform you soon." },
+                    "Account Pending Approval",
+                    403
+                );
+            }
+
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+
+            await _repo.SaveRefreshToken(
+                user.UserId,
+                refreshToken,
+                DateTime.UtcNow.AddDays(
+                    Convert.ToDouble(_config["Jwt:RefreshTokenExpiryDays"])
+                )
+            );
+
+            return ApiResponse<AuthResponse>.SuccessResponse(
+                new AuthResponse
+                {
+                    Token = accessToken,
+                    RefreshToken = refreshToken
+                },
+                "Login successful"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Auth Error] LoginAsync failed for {request.Email}: {ex.Message}");
+            return ApiResponse<AuthResponse>.FailureResponse(
+                new List<string> { $"An internal error occurred: {ex.Message}" },
+                "Server Error",
+                500
+            );
+        }
     }
 
     //  REFRESH TOKEN (FIXED)
@@ -118,22 +132,13 @@ public class AuthService : IAuthService
             );
         }
 
-        //  Fetch user
+        //  FIX: Fetch user
         var user = await _repo.GetByIdAsync(storedToken.UserId);
 
-        if (user == null || !user.IsActive)
+        if (user == null)
         {
             return ApiResponse<AuthResponse>.FailureResponse(
-                new List<string> { "User account is inactive or not found. Login required." }
-            );
-        }
-
-        if (user.RoleName == "Recruiter" && !user.IsApproved)
-        {
-            return ApiResponse<AuthResponse>.FailureResponse(
-                new List<string> { "Your account is pending approval." },
-                "Access Denied",
-                403
+                new List<string> { "User not found. Login required." }
             );
         }
 
@@ -191,7 +196,6 @@ public class AuthService : IAuthService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-
     public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request)
     {
         GoogleJsonWebSignature.Payload payload;
@@ -247,9 +251,4 @@ public class AuthService : IAuthService
             "Google login successful"
         );
     }
-
-    public async Task RevokeTokenAsync(string refreshToken)
-    {
-        await _repo.RevokeRefreshToken(refreshToken);
     }
-}
