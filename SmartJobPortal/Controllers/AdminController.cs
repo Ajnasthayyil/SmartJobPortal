@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.Interfaces;
 
@@ -96,10 +96,10 @@ public class AdminController : ControllerBase
        return StatusCode(result.StatusCode, result);
    }
 
-   [HttpPut("jobs/{jobId:int}/deactivate")]
-   public async Task<IActionResult> DeactivateJob(int jobId)
+   [HttpPut("jobs/{jobId:int}/toggle-status")]
+   public async Task<IActionResult> ToggleJobStatus(int jobId)
    {
-       var result = await _adminService.DeactivateJobAsync(jobId);
+       var result = await _adminService.ToggleJobStatusAsync(jobId);
        return StatusCode(result.StatusCode, result);
    }
 }

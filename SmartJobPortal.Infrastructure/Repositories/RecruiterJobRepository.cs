@@ -73,6 +73,7 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 UpdatedAt = GETDATE()
             WHERE JobId = @JobId
               AND RecruiterId = @RecruiterId
+              AND IsAdminBlocked = 0
             """, new { JobId = jobId, RecruiterId = recruiterId });
         return rows > 0;
     }
@@ -99,7 +100,7 @@ public class RecruiterJobRepository : IRecruiterJobRepository
             SELECT
                 j.JobId, j.RecruiterId, j.Title, j.Description,
                 j.Location, j.JobType, j.MinSalary, j.MaxSalary,
-                j.MinExperienceYears, j.IsActive, j.PostedAt, j.ExpiresAt,
+                j.MinExperienceYears, j.IsActive, j.IsAdminBlocked, j.PostedAt, j.ExpiresAt,
                 (SELECT COUNT(*) FROM Applications a
                  WHERE a.JobId = j.JobId) AS TotalApplicants
             FROM Jobs j

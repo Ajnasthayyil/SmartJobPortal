@@ -16,7 +16,7 @@ public class JobRepository : IJobRepository
     {
         using var conn = _factory.CreateConnection();
 
-        var where = new List<string> { "j.IsActive = 1" };
+        var where = new List<string> { "j.IsActive = 1", "j.IsAdminBlocked = 0" };
         var p = new DynamicParameters();
 
         if (!string.IsNullOrWhiteSpace(req.Keyword))
@@ -121,7 +121,7 @@ public class JobRepository : IJobRepository
                 j.MinExperienceYears, j.PostedAt, j.ExpiresAt
             FROM Jobs j
             INNER JOIN Recruiters r ON r.RecruiterId = j.RecruiterId
-            WHERE j.JobId IN @JobIds AND j.IsActive = 1
+            WHERE j.JobId IN @JobIds AND j.IsActive = 1 AND j.IsAdminBlocked = 0
             """, new { JobIds = jobIds })).ToList();
 
         if (jobs.Any())
@@ -205,7 +205,8 @@ public class JobRepository : IJobRepository
             INNER JOIN JobSkills js ON j.JobId = js.JobId
             INNER JOIN Skills s ON js.SkillId = s.SkillId
             WHERE LOWER(s.Name) IN @Skills
-            AND j.IsActive = 1";
+            AND j.IsActive = 1
+            AND j.IsAdminBlocked = 0";
 
         var result = await conn.QueryAsync<JobListItem>(sql, new { Skills = skills.Select(s => s.ToLower()).ToList() });
         return result.ToList();

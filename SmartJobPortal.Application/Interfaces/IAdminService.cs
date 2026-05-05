@@ -1,4 +1,4 @@
-﻿using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Admin;
 
 namespace SmartJobPortal.Application.Interfaces;
@@ -23,5 +23,5 @@ public interface IAdminService
 
     // Job monitoring
     Task<ApiResponse<List<RecentJobActivity>>> GetAllJobsAsync();
-    Task<ApiResponse<string>> DeactivateJobAsync(int jobId);
+    Task<ApiResponse<string>> ToggleJobStatusAsync(int jobId);
 }

@@ -280,7 +280,7 @@ public class RecruiterService : IRecruiterService
         await _cache.RemoveAsync($"recruiter:jobs:{recruiter.RecruiterId}");
         await _cache.RemoveAsync($"job:{jobId}");
 
-        return ApiResponse<string>.Ok("Job status toggled successfully.");
+        return ApiResponse<string>.Ok("Job status updated successfully.");
     }
 
     //  Applicants 

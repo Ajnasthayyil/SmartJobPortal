@@ -1,4 +1,4 @@
-﻿using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Admin;
 using SmartJobPortal.Application.Interfaces;
 
@@ -164,15 +164,15 @@ public class AdminService : IAdminService
         return ApiResponse<List<RecentJobActivity>>.Ok(jobs);
     }
 
-    public async Task<ApiResponse<string>> DeactivateJobAsync(int jobId)
+    public async Task<ApiResponse<string>> ToggleJobStatusAsync(int jobId)
     {
-        var deactivated = await _adminRepo.DeactivateJobAsync(jobId);
-        if (!deactivated)
+        var toggled = await _adminRepo.ToggleJobStatusAsync(jobId);
+        if (!toggled)
             return ApiResponse<string>.NotFound("Job not found.");
-
+        
         await _cache.RemoveAsync($"job:{jobId}");
         await _cache.RemoveAsync("admin:dashboard");
-
-        return ApiResponse<string>.Ok($"Job #{jobId} has been deactivated.");
+        
+        return ApiResponse<string>.Ok($"Job #{jobId} status has been toggled successfully.");
     }
 }

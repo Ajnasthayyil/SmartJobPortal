@@ -50,7 +50,7 @@ public class JobSearchService : IJobSearchService
                 Jobs = jobs
             };
             // Cache results without scores (scores are per-user)
-            await _cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(5));
+            await _cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(2));
         }
 
         // Attach per-candidate match scores

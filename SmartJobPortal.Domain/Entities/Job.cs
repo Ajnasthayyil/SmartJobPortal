@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Domain.Entities;
+namespace SmartJobPortal.Domain.Entities;
 
 public class Job
 {
@@ -12,6 +12,7 @@ public class Job
     public int? MaxSalary { get; set; }
     public int MinExperienceYears { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsAdminBlocked { get; set; } = false;
     public DateTime PostedAt { get; set; } = DateTime.Now;
     public DateTime? ExpiresAt { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.Now;

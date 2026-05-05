@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Application.DTOs.Admin;
+namespace SmartJobPortal.Application.DTOs.Admin;
 
 public class AdminDashboardResponse
 {
@@ -38,6 +38,8 @@ public class RecentJobActivity
     public string Title { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public bool IsAdminBlocked { get; set; }
     public int TotalApplicants { get; set; }
     public DateTime PostedAt { get; set; }
 }

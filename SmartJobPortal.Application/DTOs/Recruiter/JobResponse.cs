@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Application.DTOs.Recruiter;
+namespace SmartJobPortal.Application.DTOs.Recruiter;
 
 public class JobResponse
 {
@@ -12,6 +12,7 @@ public class JobResponse
     public int? MaxSalary { get; set; }
     public int MinExperienceYears { get; set; }
     public bool IsActive { get; set; }
+    public bool IsAdminBlocked { get; set; }
     public DateTime PostedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public List<string> RequiredSkills { get; set; } = new();

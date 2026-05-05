@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using SmartJobPortal.Application.DTOs.Admin;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Infrastructure.Data;
@@ -218,6 +218,8 @@ public class AdminRepository : IAdminRepository
                 j.Title,
                 r.CompanyName,
                 j.Location,
+                j.IsActive,
+                j.IsAdminBlocked,
                 j.PostedAt,
                 (SELECT COUNT(*)
                  FROM Applications a
@@ -229,13 +231,13 @@ public class AdminRepository : IAdminRepository
         return rows.ToList();
     }
 
-    public async Task<bool> DeactivateJobAsync(int jobId)
+    public async Task<bool> ToggleJobStatusAsync(int jobId)
     {
         using var conn = _factory.CreateConnection();
         var rows = await conn.ExecuteAsync("""
             UPDATE Jobs
-            SET IsActive  = 0,
-                UpdatedAt = GETDATE()
+            SET IsAdminBlocked = CASE WHEN IsAdminBlocked = 1 THEN 0 ELSE 1 END,
+                UpdatedAt      = GETDATE()
             WHERE JobId = @JobId
             """, new { JobId = jobId });
         return rows > 0;
@@ -297,6 +299,8 @@ public class AdminRepository : IAdminRepository
                 j.Title,
                 rec.CompanyName,
                 j.Location,
+                j.IsActive,
+                j.IsAdminBlocked,
                 j.PostedAt,
                 (SELECT COUNT(*) FROM Applications a
                  WHERE a.JobId = j.JobId) AS TotalApplicants
