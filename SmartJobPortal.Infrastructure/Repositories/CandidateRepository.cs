@@ -184,4 +184,13 @@ public class CandidateRepository : ICandidateRepository
 
         return (skills, education, experience);
     }
-}
+
+    public async Task AddCandidateSkillAsync(int candidateId, int skillId, string level)
+    {
+        using var conn = _factory.CreateConnection();
+        await conn.ExecuteAsync("""
+            INSERT INTO CandidateSkills (CandidateId, SkillId, Level)
+            VALUES (@CandidateId, @SkillId, @Level)
+            """, new { CandidateId = candidateId, SkillId = skillId, Level = level });
+    }
+}

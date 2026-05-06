@@ -101,6 +101,13 @@ public class UserRepository : IUserRepository
         await connection.ExecuteAsync(sql, new { Token = token });
     }
 
+    public async Task UpdatePhoneNumberAsync(int userId, string phoneNumber)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = "UPDATE Users SET PhoneNumber = @PhoneNumber WHERE UserId = @UserId";
+        await connection.ExecuteAsync(sql, new { PhoneNumber = phoneNumber, UserId = userId });
+    }
+
     public async Task UpdateProfilePictureAsync(int userId, string url)
     {
         using var connection = _factory.CreateConnection();

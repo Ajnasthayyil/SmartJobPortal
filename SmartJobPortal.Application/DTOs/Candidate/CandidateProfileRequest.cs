@@ -18,6 +18,8 @@ public class CandidateProfileRequest
     [Range(0, 50, ErrorMessage = "Experience years must be between 0 and 50")]
     public int ExperienceYears { get; set; }
 
+    public string PhoneNumber { get; set; } = string.Empty;
+
     public List<SkillRequest> Skills { get; set; } = new();
 
     public List<EducationRequest> Education { get; set; } = new();

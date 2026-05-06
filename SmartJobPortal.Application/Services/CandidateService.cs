@@ -69,11 +69,18 @@ public class CandidateService : ICandidateService
         candidate.ExperienceYears = request.ExperienceYears;
         candidate.UpdatedAt = DateTime.Now;
 
+        // Update Phone Number if provided
+        if (!string.IsNullOrWhiteSpace(request.PhoneNumber) && user.PhoneNumber != request.PhoneNumber)
+        {
+            await _userRepo.UpdatePhoneNumberAsync(userId, request.PhoneNumber);
+            user.PhoneNumber = request.PhoneNumber;
+        }
+
         var upsertedId = await _candidateRepo.UpsertAsync(candidate);
         var candidateId = candidate.CandidateId > 0 ? candidate.CandidateId : upsertedId;
         candidate.CandidateId = candidateId;
 
-        // Resolve skill names → IDs, create if new
+        // 1 — Skills
         var skillRows = new List<CandidateSkill>();
         foreach (var s in request.Skills)
         {
@@ -88,9 +95,35 @@ public class CandidateService : ICandidateService
                 Level = s.Level
             });
         }
-
-        // Atomic replace — DELETE old rows + INSERT new in one transaction
         await _candidateRepo.ReplaceSkillsAsync(candidateId, skillRows);
+
+        // 2 — Education & Experience (Clear and Replace)
+        await _candidateRepo.ClearEducationAndExperienceAsync(candidateId);
+
+        if (request.Education.Any())
+        {
+            var eduRows = request.Education.Select(e => new CandidateEducation
+            {
+                CandidateId = candidateId,
+                Degree = e.Degree,
+                Institution = e.Institution,
+                GraduationYear = e.Duration // Frontend sends duration string
+            }).ToList();
+            await _candidateRepo.AddEducationAsync(eduRows);
+        }
+
+        if (request.WorkExperience.Any())
+        {
+            var expRows = request.WorkExperience.Select(e => new CandidateExperience
+            {
+                CandidateId = candidateId,
+                Company = e.Company,
+                Role = e.Role,
+                Duration = e.Duration,
+                Description = e.Description
+            }).ToList();
+            await _candidateRepo.AddExperienceAsync(expRows);
+        }
 
         // Bust cache
         await _cache.RemoveAsync($"candidate:profile:{userId}");
