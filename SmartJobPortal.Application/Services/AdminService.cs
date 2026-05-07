@@ -7,11 +7,13 @@ namespace SmartJobPortal.Application.Services;
 public class AdminService : IAdminService
 {
     private readonly IAdminRepository _adminRepo;
+    private readonly IUserRepository _userRepo;
     private readonly ICacheService _cache;
 
-    public AdminService(IAdminRepository adminRepo, ICacheService cache)
+    public AdminService(IAdminRepository adminRepo, IUserRepository userRepo, ICacheService cache)
     {
         _adminRepo = adminRepo;
+        _userRepo = userRepo;
         _cache = cache;
     }
 
@@ -174,5 +176,50 @@ public class AdminService : IAdminService
         await _cache.RemoveAsync("admin:dashboard");
         
         return ApiResponse<string>.Ok($"Job #{jobId} status has been toggled successfully.");
+    }
+
+    public async Task<ApiResponse<AdminProfileResponse>> GetAdminProfileAsync(int userId)
+    {
+        var user = await _userRepo.GetByIdAsync(userId);
+        if (user == null)
+            return ApiResponse<AdminProfileResponse>.NotFound("Admin not found.");
+
+        var response = new AdminProfileResponse
+        {
+            UserId = user.UserId,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            CreatedAt = user.CreatedAt
+        };
+
+        return ApiResponse<AdminProfileResponse>.Ok(response);
+    }
+
+    public async Task<ApiResponse<AdminProfileResponse>> UpdateAdminProfileAsync(int userId, UpdateAdminProfileRequest request)
+    {
+        var user = await _userRepo.GetByIdAsync(userId);
+        if (user == null)
+            return ApiResponse<AdminProfileResponse>.NotFound("Admin not found.");
+
+        await _userRepo.UpdateProfileAsync(userId, request.FullName, request.PhoneNumber);
+
+        // Bust cache
+        await _cache.RemoveAsync($"user:{userId}");
+        await _cache.RemoveAsync($"user:email:{user.Email}");
+
+        var updatedUser = await _userRepo.GetByIdAsync(userId);
+        var response = new AdminProfileResponse
+        {
+            UserId = updatedUser.UserId,
+            FullName = updatedUser.FullName,
+            Email = updatedUser.Email,
+            PhoneNumber = updatedUser.PhoneNumber,
+            ProfilePictureUrl = updatedUser.ProfilePictureUrl,
+            CreatedAt = updatedUser.CreatedAt
+        };
+
+        return ApiResponse<AdminProfileResponse>.Ok(response, "Admin profile updated successfully.");
     }
 }

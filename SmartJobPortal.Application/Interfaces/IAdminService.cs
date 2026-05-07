@@ -24,4 +24,8 @@ public interface IAdminService
     // Job monitoring
     Task<ApiResponse<List<RecentJobActivity>>> GetAllJobsAsync();
     Task<ApiResponse<string>> ToggleJobStatusAsync(int jobId);
+
+    // Admin Profile
+    Task<ApiResponse<AdminProfileResponse>> GetAdminProfileAsync(int userId);
+    Task<ApiResponse<AdminProfileResponse>> UpdateAdminProfileAsync(int userId, UpdateAdminProfileRequest request);
 }

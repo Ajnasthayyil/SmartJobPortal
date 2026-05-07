@@ -12,5 +12,6 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(string email);
     Task<int> GetRoleIdByName(string role);
     Task UpdatePhoneNumberAsync(int userId, string phoneNumber);
+    Task UpdateProfileAsync(int userId, string fullName, string phoneNumber);
     Task CreateUserAsync(User user);
 }

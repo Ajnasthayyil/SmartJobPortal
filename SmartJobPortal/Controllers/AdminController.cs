@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartJobPortal.Application.DTOs.Admin;
 using SmartJobPortal.Application.Interfaces;
+using System.Security.Claims;
 
 namespace SmartJobPortal.API.Controllers;
 
@@ -101,5 +103,27 @@ public class AdminController : ControllerBase
    {
        var result = await _adminService.ToggleJobStatusAsync(jobId);
        return StatusCode(result.StatusCode, result);
+   }
+
+   [HttpGet("profile")]
+   public async Task<IActionResult> GetProfile()
+   {
+      var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+      if (userIdClaim == null) return Unauthorized();
+
+      var userId = int.Parse(userIdClaim.Value);
+      var result = await _adminService.GetAdminProfileAsync(userId);
+      return StatusCode(result.StatusCode, result);
+   }
+
+   [HttpPut("profile")]
+   public async Task<IActionResult> UpdateProfile([FromBody] UpdateAdminProfileRequest request)
+   {
+      var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+      if (userIdClaim == null) return Unauthorized();
+
+      var userId = int.Parse(userIdClaim.Value);
+      var result = await _adminService.UpdateAdminProfileAsync(userId, request);
+      return StatusCode(result.StatusCode, result);
    }
 }
