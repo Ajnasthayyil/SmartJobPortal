@@ -9,15 +9,21 @@ public class AdminService : IAdminService
     private readonly IAdminRepository _adminRepo;
     private readonly IUserRepository _userRepo;
     private readonly ICacheService _cache;
+    private readonly INotificationService _notificationService;
 
-    public AdminService(IAdminRepository adminRepo, IUserRepository userRepo, ICacheService cache)
+    public AdminService(
+        IAdminRepository adminRepo, 
+        IUserRepository userRepo, 
+        ICacheService cache,
+        INotificationService notificationService)
     {
         _adminRepo = adminRepo;
         _userRepo = userRepo;
         _cache = cache;
+        _notificationService = notificationService;
     }
 
-    //  Dashboard 
+    // ── Dashboard ──────────────────────────────────────────────────
 
     public async Task<ApiResponse<AdminDashboardResponse>> GetDashboardAsync()
     {
@@ -27,17 +33,14 @@ public class AdminService : IAdminService
             return ApiResponse<AdminDashboardResponse>.Ok(cached);
 
         var stats = await _adminRepo.GetDashboardStatsAsync();
-
-        // Cache for 5 minutes — dashboard data changes frequently
         await _cache.SetAsync(cacheKey, stats, TimeSpan.FromMinutes(5));
 
         return ApiResponse<AdminDashboardResponse>.Ok(stats);
     }
 
-    //  User management 
+    // ── User management ──────────────────────────────────────────
 
-    public async Task<ApiResponse<List<UserListResponse>>> GetAllUsersAsync(
-        string? roleFilter, bool? isActive)
+    public async Task<ApiResponse<List<UserListResponse>>> GetAllUsersAsync(string? roleFilter, bool? isActive)
     {
         var users = await _adminRepo.GetAllUsersAsync(roleFilter, isActive);
         return ApiResponse<List<UserListResponse>>.Ok(users);
@@ -61,19 +64,21 @@ public class AdminService : IAdminService
         if (!user.IsActive)
             return ApiResponse<string>.Fail("User is already blocked.");
 
-        // Prevent blocking an admin account
         if (user.RoleName == "Admin")
             return ApiResponse<string>.Fail("Admin accounts cannot be blocked.", 403);
 
         await _adminRepo.BlockUserAsync(userId);
 
-        // Bust user cache
+        // ── FIRE NOTIFICATION ──
+        var (title, message, type) = NotificationTemplates.AccountBlocked();
+        await _notificationService.CreateAsync(userId, title, message, type);
+
+        // Bust cache
         await _cache.RemoveAsync($"user:{userId}");
         await _cache.RemoveAsync($"user:email:{user.Email}");
         await _cache.RemoveAsync("admin:dashboard");
 
-        return ApiResponse<string>.Ok(
-            $"User '{user.FullName}' has been blocked successfully.");
+        return ApiResponse<string>.Ok($"User '{user.FullName}' has been blocked successfully.");
     }
 
     public async Task<ApiResponse<string>> UnblockUserAsync(int userId)
@@ -87,25 +92,26 @@ public class AdminService : IAdminService
 
         await _adminRepo.UnblockUserAsync(userId);
 
+        // ── FIRE NOTIFICATION ──
+        var (title, message, type) = NotificationTemplates.AccountUnblocked();
+        await _notificationService.CreateAsync(userId, title, message, type);
+
         await _cache.RemoveAsync($"user:{userId}");
         await _cache.RemoveAsync($"user:email:{user.Email}");
         await _cache.RemoveAsync("admin:dashboard");
 
-        return ApiResponse<string>.Ok(
-            $"User '{user.FullName}' has been unblocked successfully.");
+        return ApiResponse<string>.Ok($"User '{user.FullName}' has been unblocked successfully.");
     }
 
-    //  Recruiter approvals 
+    // ── Recruiter approvals ───────────────────────────────────────
 
-    public async Task<ApiResponse<List<RecruiterApprovalResponse>>>
-        GetPendingRecruitersAsync()
+    public async Task<ApiResponse<List<RecruiterApprovalResponse>>> GetPendingRecruitersAsync()
     {
         var recruiters = await _adminRepo.GetPendingRecruitersAsync();
         return ApiResponse<List<RecruiterApprovalResponse>>.Ok(recruiters);
     }
 
-    public async Task<ApiResponse<List<RecruiterApprovalResponse>>>
-        GetAllRecruitersAsync()
+    public async Task<ApiResponse<List<RecruiterApprovalResponse>>> GetAllRecruitersAsync()
     {
         var recruiters = await _adminRepo.GetAllRecruitersAsync();
         return ApiResponse<List<RecruiterApprovalResponse>>.Ok(recruiters);
@@ -114,18 +120,17 @@ public class AdminService : IAdminService
     public async Task<ApiResponse<string>> ApproveRecruiterAsync(int userId)
     {
         var recruiter = await _adminRepo.GetRecruiterApprovalByUserIdAsync(userId);
-
         if (recruiter == null)
             return ApiResponse<string>.NotFound("Recruiter not found.");
 
         if (recruiter.IsApproved)
             return ApiResponse<string>.Fail("Recruiter is already approved.");
 
-        if (!recruiter.IsActive)
-            return ApiResponse<string>.Fail(
-                "Cannot approve a blocked account. Unblock the user first.");
-
         await _adminRepo.ApproveRecruiterAsync(userId);
+
+        // ── FIRE NOTIFICATION ──
+        var (title, message, type) = NotificationTemplates.RecruiterApproved(recruiter.FullName);
+        await _notificationService.CreateAsync(userId, title, message, type);
 
         // Bust caches
         await _cache.RemoveAsync($"user:{userId}");
@@ -133,32 +138,29 @@ public class AdminService : IAdminService
         await _cache.RemoveAsync($"recruiter:profile:{userId}");
         await _cache.RemoveAsync("admin:dashboard");
 
-        return ApiResponse<string>.Ok(
-            $"Recruiter '{recruiter.FullName}' from '{recruiter.CompanyName}'" +
-            $" has been approved. They can now login and post jobs.");
+        return ApiResponse<string>.Ok($"Recruiter '{recruiter.FullName}' approved.");
     }
 
     public async Task<ApiResponse<string>> RejectRecruiterAsync(int userId)
     {
         var recruiter = await _adminRepo.GetRecruiterApprovalByUserIdAsync(userId);
-
         if (recruiter == null)
             return ApiResponse<string>.NotFound("Recruiter not found.");
 
-        if (!recruiter.IsActive)
-            return ApiResponse<string>.Fail("User account is already blocked.");
-
         await _adminRepo.RejectRecruiterAsync(userId);
+
+        // ── FIRE NOTIFICATION ──
+        var (title, message, type) = NotificationTemplates.RecruiterRejected();
+        await _notificationService.CreateAsync(userId, title, message, type);
 
         await _cache.RemoveAsync($"user:{userId}");
         await _cache.RemoveAsync($"user:email:{recruiter.Email}");
         await _cache.RemoveAsync("admin:dashboard");
 
-        return ApiResponse<string>.Ok(
-            $"Recruiter '{recruiter.FullName}' has been rejected and blocked.");
+        return ApiResponse<string>.Ok($"Recruiter '{recruiter.FullName}' rejected and blocked.");
     }
 
-    //  Job monitoring 
+    // ── Job monitoring ──────────────────────────────────────────
 
     public async Task<ApiResponse<List<RecentJobActivity>>> GetAllJobsAsync()
     {
@@ -171,12 +173,14 @@ public class AdminService : IAdminService
         var toggled = await _adminRepo.ToggleJobStatusAsync(jobId);
         if (!toggled)
             return ApiResponse<string>.NotFound("Job not found.");
-        
+
         await _cache.RemoveAsync($"job:{jobId}");
         await _cache.RemoveAsync("admin:dashboard");
-        
-        return ApiResponse<string>.Ok($"Job #{jobId} status has been toggled successfully.");
+
+        return ApiResponse<string>.Ok($"Job #{jobId} status toggled.");
     }
+
+    // ── Admin Profile ───────────────────────────────────────────
 
     public async Task<ApiResponse<AdminProfileResponse>> GetAdminProfileAsync(int userId)
     {
@@ -184,7 +188,7 @@ public class AdminService : IAdminService
         if (user == null)
             return ApiResponse<AdminProfileResponse>.NotFound("Admin not found.");
 
-        var response = new AdminProfileResponse
+        return ApiResponse<AdminProfileResponse>.Ok(new AdminProfileResponse
         {
             UserId = user.UserId,
             FullName = user.FullName,
@@ -192,9 +196,7 @@ public class AdminService : IAdminService
             PhoneNumber = user.PhoneNumber,
             ProfilePictureUrl = user.ProfilePictureUrl,
             CreatedAt = user.CreatedAt
-        };
-
-        return ApiResponse<AdminProfileResponse>.Ok(response);
+        });
     }
 
     public async Task<ApiResponse<AdminProfileResponse>> UpdateAdminProfileAsync(int userId, UpdateAdminProfileRequest request)
@@ -205,12 +207,11 @@ public class AdminService : IAdminService
 
         await _userRepo.UpdateProfileAsync(userId, request.FullName, request.PhoneNumber);
 
-        // Bust cache
         await _cache.RemoveAsync($"user:{userId}");
         await _cache.RemoveAsync($"user:email:{user.Email}");
 
         var updatedUser = await _userRepo.GetByIdAsync(userId);
-        var response = new AdminProfileResponse
+        return ApiResponse<AdminProfileResponse>.Ok(new AdminProfileResponse
         {
             UserId = updatedUser.UserId,
             FullName = updatedUser.FullName,
@@ -218,8 +219,6 @@ public class AdminService : IAdminService
             PhoneNumber = updatedUser.PhoneNumber,
             ProfilePictureUrl = updatedUser.ProfilePictureUrl,
             CreatedAt = updatedUser.CreatedAt
-        };
-
-        return ApiResponse<AdminProfileResponse>.Ok(response, "Admin profile updated successfully.");
+        }, "Admin profile updated successfully.");
     }
 }

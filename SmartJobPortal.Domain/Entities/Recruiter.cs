@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Domain.Entities;
+namespace SmartJobPortal.Domain.Entities;
 
 public class Recruiter
 {
@@ -11,6 +11,7 @@ public class Recruiter
     public string? Location { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public bool IsApproved { get; set; }
 
     // Joined from Users table
     public string FullName { get; set; } = string.Empty;

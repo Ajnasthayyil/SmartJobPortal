@@ -95,7 +95,6 @@ public class RecruiterJobRepository : IRecruiterJobRepository
     {
         using var conn = _factory.CreateConnection();
 
-        // Get all jobs for this recruiter
         var jobs = (await conn.QueryAsync<JobResponse>("""
             SELECT
                 j.JobId, j.RecruiterId, j.Title, j.Description,
@@ -169,6 +168,18 @@ public class RecruiterJobRepository : IRecruiterJobRepository
         tx.Commit();
     }
 
+    public async Task<List<string>> GetJobSkillsAsync(int jobId)
+    {
+        using var conn = _factory.CreateConnection();
+        var names = await conn.QueryAsync<string>("""
+            SELECT s.Name
+            FROM JobSkills js
+            INNER JOIN Skills s ON s.SkillId = js.SkillId
+            WHERE js.JobId = @JobId
+            """, new { JobId = jobId });
+        return names.ToList();
+    }
+
     // ── Applicants ────────────────────────────────────────────────────────────
 
     public async Task<List<ApplicantResponse>> GetApplicantsAsync(int jobId)
@@ -189,18 +200,21 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 a.AppliedAt,
                 CASE WHEN c.ResumeFilePath IS NOT NULL THEN 1 ELSE 0 END AS HasResume,
                 c.ResumeOriginalName,
-                -- Match score fields (LEFT JOIN — may be null if not calculated yet)
                 ms.TotalScore,
                 ms.SkillScore,
                 ms.ExperienceScore,
                 ms.LocationScore,
-                ms.MissingSkills AS MissingSkillsJson
+                ms.MissingSkills AS MissingSkillsJson,
+                j.Title AS JobTitle,
+                r.CompanyName
             FROM Applications a
             INNER JOIN Candidates c ON c.CandidateId = a.CandidateId
             INNER JOIN Users      u ON u.UserId       = c.UserId
+            INNER JOIN Jobs       j ON j.JobId        = a.JobId
+            INNER JOIN Recruiters r ON r.RecruiterId  = j.RecruiterId
             LEFT  JOIN MatchScores ms
                 ON ms.CandidateId = c.CandidateId
-               AND ms.JobId       = a.JobId
+                AND ms.JobId       = a.JobId
             WHERE a.JobId = @JobId
             ORDER BY a.AppliedAt DESC
             """, new { JobId = jobId })).ToList();
@@ -224,7 +238,6 @@ public class RecruiterJobRepository : IRecruiterJobRepository
                 if (skillMap.TryGetValue(a.CandidateId, out var skills))
                     a.Skills = skills;
 
-                // Parse the JSON we fetched in the main query
                 var json = a.MissingSkillsJson;
                 if (!string.IsNullOrEmpty(json))
                 {
@@ -246,20 +259,16 @@ public class RecruiterJobRepository : IRecruiterJobRepository
 
     //  Application status 
 
-    public async Task<bool> UpdateApplicationStatusAsync(
-        int applicationId, int recruiterId, string status)
+    public async Task<bool> UpdateApplicationStatusAsync(int applicationId, int recruiterId, string status)
     {
         using var conn = _factory.CreateConnection();
-        // Verify the application belongs to a job owned by this recruiter
         var rows = await conn.ExecuteAsync("""
             UPDATE Applications
             SET Status    = @Status,
                 UpdatedAt = GETDATE()
             FROM Applications a
-            INNER JOIN Jobs j
-                ON j.JobId = a.JobId
-            INNER JOIN Recruiters r
-                ON r.RecruiterId = j.RecruiterId
+            INNER JOIN Jobs j ON j.JobId = a.JobId
+            INNER JOIN Recruiters r ON r.RecruiterId = j.RecruiterId
             WHERE a.ApplicationId = @ApplicationId
               AND r.RecruiterId   = @RecruiterId
             """, new
@@ -271,39 +280,25 @@ public class RecruiterJobRepository : IRecruiterJobRepository
         return rows > 0;
     }
 
-    //  Private helpers 
-
-    private async Task<List<string>> GetSkillNamesByJobIdAsync(int jobId)
+    public async Task<string?> GetApplicationStatusAsync(int applicationId)
     {
         using var conn = _factory.CreateConnection();
-        var names = await conn.QueryAsync<string>("""
-            SELECT s.Name
-            FROM JobSkills js
-            INNER JOIN Skills s ON s.SkillId = js.SkillId
-            WHERE js.JobId = @JobId
-            """, new { JobId = jobId });
-        return names.ToList();
+        return await conn.ExecuteScalarAsync<string?>(
+            "SELECT Status FROM Applications WHERE ApplicationId = @ApplicationId",
+            new { ApplicationId = applicationId });
     }
 
-    private async Task<List<string>> GetCandidateSkillNamesAsync(int candidateId)
+    public async Task<(int CandidateUserId, string JobTitle, string CompanyName)?> GetApplicationDetailsAsync(int applicationId)
     {
         using var conn = _factory.CreateConnection();
-        var names = await conn.QueryAsync<string>("""
-            SELECT s.Name
-            FROM CandidateSkills cs
-            INNER JOIN Skills s ON s.SkillId = cs.SkillId
-            WHERE cs.CandidateId = @CandidateId
-            """, new { CandidateId = candidateId });
-        return names.ToList();
-    }
-
-    private async Task<string?> GetMissingSkillsJsonAsync(int candidateId, int jobId)
-    {
-        using var conn = _factory.CreateConnection();
-        return await conn.ExecuteScalarAsync<string?>("""
-            SELECT MissingSkills
-            FROM MatchScores
-            WHERE CandidateId = @CandidateId AND JobId = @JobId
-            """, new { CandidateId = candidateId, JobId = jobId });
+        return await conn.QuerySingleOrDefaultAsync<(int, string, string)>("""
+            SELECT 
+                c.UserId, j.Title, r.CompanyName
+            FROM Applications a
+            INNER JOIN Candidates c ON c.CandidateId = a.CandidateId
+            INNER JOIN Jobs j ON j.JobId = a.JobId
+            INNER JOIN Recruiters r ON r.RecruiterId = j.RecruiterId
+            WHERE a.ApplicationId = @ApplicationId
+            """, new { ApplicationId = applicationId });
     }
 }

@@ -15,6 +15,8 @@ public class ApplicantResponse
     public bool HasResume { get; set; }
     public string? ResumeOriginalName { get; set; }
     public string? ResumeUrl { get; set; }
+    public string JobTitle { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
     public List<string> Skills { get; set; } = new();
 
     // AI score fields

@@ -16,12 +16,14 @@ public interface IRecruiterJobRepository
 
     // Job Skills
     Task ReplaceJobSkillsAsync(int jobId, List<int> skillIds);
+    Task<List<string>> GetJobSkillsAsync(int jobId);
 
     // Applicants
     Task<List<ApplicantResponse>> GetApplicantsAsync(int jobId);
     Task<int> GetTotalApplicantsAsync(int jobId);
 
     // Application status
-    Task<bool> UpdateApplicationStatusAsync(int applicationId,
-        int recruiterId, string status);
+    Task<bool> UpdateApplicationStatusAsync(int applicationId, int recruiterId, string status);
+    Task<string?> GetApplicationStatusAsync(int applicationId);
+    Task<(int CandidateUserId, string JobTitle, string CompanyName)?> GetApplicationDetailsAsync(int applicationId);
 }

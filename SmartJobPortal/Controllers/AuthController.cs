@@ -17,21 +17,26 @@ public class AuthController : ControllerBase
     //  COOKIE METHOD (ONLY ONE)
     private void SetTokenCookie(string token, string refreshToken)
     {
-        Response.Cookies.Append("AuthToken", token, new CookieOptions
+        // Access Token Cookie (Short-lived)
+        var authOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddMinutes(30)
-        });
+            Secure = false, 
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTime.UtcNow.AddMinutes(15) 
+        };
 
-        Response.Cookies.Append("RefreshToken", refreshToken, new CookieOptions
+        // Refresh Token Cookie (Long-lived)
+        var refreshOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
+            Secure = false,
+            SameSite = SameSiteMode.Lax,
             Expires = DateTime.UtcNow.AddDays(7)
-        });
+        };
+
+        Response.Cookies.Append("AuthToken", token, authOptions);
+        Response.Cookies.Append("RefreshToken", refreshToken, refreshOptions);
     }
 
     //  REGISTER
@@ -66,8 +71,10 @@ public class AuthController : ControllerBase
     {
         var result = await _service.GoogleLoginAsync(request);
 
-        if (!result.Success)
+        if (!result.Success || result.Data == null)
             return Unauthorized(result);
+
+        SetTokenCookie(result.Data.Token!, result.Data.RefreshToken!);
 
         return Ok(result);
     }

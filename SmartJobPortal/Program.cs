@@ -102,6 +102,10 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 // Register DataSeeder
 builder.Services.AddScoped<DataSeeder>();
 
+// ── Notification module ───────────────────────────────────────
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
 // JWT
 builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer("Bearer", options =>
