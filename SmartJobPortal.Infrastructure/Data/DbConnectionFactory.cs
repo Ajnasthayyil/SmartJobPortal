@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
@@ -20,6 +20,20 @@ public class DbConnectionFactory : IDbConnectionFactory
 
     public IDbConnection CreateConnection()
     {
-        return new SqlConnection(_config.GetConnectionString("Default"));
+        var connection = new SqlConnection(_config.GetConnectionString("Default"));
+        try
+        {
+            if (connection.State != ConnectionState.Open)
+            {
+                connection.Open();
+            }
+            return connection;
+        }
+        catch (Exception ex)
+        {
+            connection.Dispose();
+            Console.WriteLine($"[Critical] Database Connection Failed: {ex.Message}");
+            throw;
+        }
     }
 }
