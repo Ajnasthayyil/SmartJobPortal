@@ -12,4 +12,5 @@ public interface IJobRepository
     Task<string?> GetTitleAsync(int jobId);
     Task<List<JobDetail>> GetDetailsAsync(List<int> jobIds);
     Task<List<JobListItem>> GetBySkillsAsync(List<string> skills);
+    Task<List<CompanyResponse>> GetCompaniesAsync();
 }

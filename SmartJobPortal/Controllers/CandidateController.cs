@@ -123,4 +123,12 @@ public class CandidateController : ControllerBase
         var result = await _matchScoreService.GetBulkAsync(UserId, jobIds);
         return StatusCode(result.StatusCode, result);
     }
+
+    [HttpGet("companies")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetCompanies()
+    {
+        var result = await _candidateService.GetCompaniesAsync();
+        return StatusCode(result.StatusCode, result);
+    }
 }

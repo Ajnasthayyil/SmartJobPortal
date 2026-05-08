@@ -118,7 +118,8 @@ public class AdminRepository : IAdminRepository
                 COALESCE(rec.CompanyName, '')   AS CompanyName,
                 rec.Industry,
                 rec.Location,
-                rec.Website
+                rec.Website,
+                rec.Description
             FROM Users u
             LEFT JOIN Recruiters rec ON rec.UserId = u.UserId
             INNER JOIN Roles r ON r.RoleId = u.RoleId
@@ -146,7 +147,8 @@ public class AdminRepository : IAdminRepository
                 COALESCE(rec.CompanyName, '')   AS CompanyName,
                 rec.Industry,
                 rec.Location,
-                rec.Website
+                rec.Website,
+                rec.Description
             FROM Users u
             LEFT JOIN Recruiters rec ON rec.UserId = u.UserId
             INNER JOIN Roles r ON r.RoleId = u.RoleId
@@ -173,7 +175,8 @@ public class AdminRepository : IAdminRepository
                 COALESCE(rec.CompanyName, '')   AS CompanyName,
                 rec.Industry,
                 rec.Location,
-                rec.Website
+                rec.Website,
+                rec.Description
             FROM Users u
             LEFT JOIN Recruiters rec ON rec.UserId = u.UserId
             INNER JOIN Roles r ON r.RoleId = u.RoleId
@@ -185,11 +188,10 @@ public class AdminRepository : IAdminRepository
     public async Task<bool> ApproveRecruiterAsync(int userId)
     {
         using var conn = _factory.CreateConnection();
+        // Update both Users table and Recruiters table
         var rows = await conn.ExecuteAsync("""
-            UPDATE Users
-            SET IsApproved = 1,
-                IsActive   = 1
-            WHERE UserId = @UserId
+            UPDATE Users SET IsApproved = 1, IsActive = 1 WHERE UserId = @UserId;
+            UPDATE Recruiters SET IsApproved = 1 WHERE UserId = @UserId;
             """, new { UserId = userId });
         return rows > 0;
     }

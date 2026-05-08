@@ -69,7 +69,7 @@ public class JobRepository : IJobRepository
 
         var dataSql = $"""
             SELECT
-                j.JobId, j.Title, r.CompanyName, j.Location,
+                j.JobId, j.Title, j.Description, r.CompanyName, j.Location,
                 j.JobType, j.MinSalary, j.MaxSalary,
                 j.MinExperienceYears, j.PostedAt
             FROM Jobs j
@@ -210,5 +210,24 @@ public class JobRepository : IJobRepository
 
         var result = await conn.QueryAsync<JobListItem>(sql, new { Skills = skills.Select(s => s.ToLower()).ToList() });
         return result.ToList();
+    }
+    public async Task<List<CompanyResponse>> GetCompaniesAsync()
+    {
+        using var conn = _factory.CreateConnection();
+        var companies = await conn.QueryAsync<CompanyResponse>("""
+            SELECT 
+                r.RecruiterId, 
+                r.CompanyName, 
+                r.Industry, 
+                r.Location, 
+                r.Website, 
+                r.Description,
+                (SELECT COUNT(*) FROM Jobs j WHERE j.RecruiterId = r.RecruiterId AND j.IsActive = 1 AND j.IsAdminBlocked = 0) AS OpenJobsCount
+            FROM Recruiters r
+            INNER JOIN Users u ON u.UserId = r.UserId
+            WHERE u.IsApproved = 1 AND u.IsActive = 1
+            ORDER BY r.CompanyName
+            """);
+        return companies.ToList();
     }
 }

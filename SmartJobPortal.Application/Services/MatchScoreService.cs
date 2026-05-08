@@ -1,5 +1,6 @@
 using System.Text.Json;
 using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.Common.Utilities;
 using SmartJobPortal.Application.DTOs.Candidate;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Domain.Entities;
@@ -11,17 +12,20 @@ public class MatchScoreService : IMatchScoreService
     private readonly ICandidateRepository _candidateRepo;
     private readonly IJobRepository _jobRepo;
     private readonly IMatchScoreRepository _matchScoreRepo;
+    private readonly ISemanticMatcher _matcher;
     private readonly ICacheService _cache;
 
     public MatchScoreService(
         ICandidateRepository candidateRepo,
         IJobRepository jobRepo,
         IMatchScoreRepository matchScoreRepo,
+        ISemanticMatcher matcher,
         ICacheService cache)
     {
         _candidateRepo = candidateRepo;
         _jobRepo = jobRepo;
         _matchScoreRepo = matchScoreRepo;
+        _matcher = matcher;
         _cache = cache;
     }
 
@@ -100,12 +104,22 @@ public class MatchScoreService : IMatchScoreService
 
     private MatchScore CalculateInMemory(Candidate candidate, HashSet<string> candidateSkills, JobDetail job)
     {
-        var jobSkillsNorm = job.RequiredSkills.Select(s => s.ToLowerInvariant()).ToList();
-        var matched = jobSkillsNorm.Where(s => candidateSkills.Contains(s)).ToList();
-        var missing = jobSkillsNorm.Except(matched).ToList();
+        var jobSkills = job.RequiredSkills;
+        var candidateSkillsList = candidateSkills.ToList();
+        
+        var matched = new List<string>();
+        foreach (var js in jobSkills)
+        {
+            if (candidateSkillsList.Any(cs => _matcher.IsMatch(cs, js, out _)))
+            {
+                matched.Add(js.ToLowerInvariant());
+            }
+        }
+        
+        var missing = jobSkills.Select(s => s.ToLowerInvariant()).Except(matched).ToList();
 
-        var skillScore = jobSkillsNorm.Count > 0
-            ? Math.Round((decimal)matched.Count / jobSkillsNorm.Count * 100, 2)
+        var skillScore = jobSkills.Count > 0
+            ? Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2)
             : 0m;
 
         var expScore = job.MinExperienceYears == 0 ? 100m
@@ -138,7 +152,7 @@ public class MatchScoreService : IMatchScoreService
             SkillScore = score.SkillScore,
             ExperienceScore = score.ExperienceScore,
             LocationScore = score.LocationScore,
-            MatchedSkills = job.RequiredSkills.Where(s => candidateSkills.Contains(s.ToLowerInvariant())).ToList(),
+            MatchedSkills = job.RequiredSkills.Where(js => candidateSkills.Any(cs => _matcher.IsMatch(cs, js, out _))).ToList(),
             MissingSkills = missing
         };
     }
@@ -202,25 +216,24 @@ public class MatchScoreService : IMatchScoreService
         var jobSkills = await _jobRepo.GetSkillNamesAsync(jobId);
         if (!jobSkills.Any()) return null;
 
-        var candidateSkillNames = (await _candidateRepo.GetSkillsAsync(candidate.CandidateId))
-            .Select(s => s.SkillName.ToLowerInvariant())
-            .ToHashSet();
-
-        var jobSkillsNorm = jobSkills
-            .Select(s => s.ToLowerInvariant())
+        var candidateSkills = (await _candidateRepo.GetSkillsAsync(candidate.CandidateId))
+            .Select(s => s.SkillName)
             .ToList();
 
-        var matched = jobSkillsNorm
-            .Where(s => candidateSkillNames.Contains(s))
-            .ToList();
+        var matched = new List<string>();
+        foreach (var js in jobSkills)
+        {
+            if (candidateSkills.Any(cs => _matcher.IsMatch(cs, js, out _)))
+            {
+                matched.Add(js.ToLowerInvariant());
+            }
+        }
 
-        var missing = jobSkillsNorm
-            .Except(matched)
-            .ToList();
+        var missing = jobSkills.Select(s => s.ToLowerInvariant()).Except(matched).ToList();
 
         // Skill score (0–100)
-        var skillScore = jobSkillsNorm.Count > 0
-            ? Math.Round((decimal)matched.Count / jobSkillsNorm.Count * 100, 2)
+        var skillScore = jobSkills.Count > 0
+            ? Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2)
             : 0m;
 
         // Experience score (0–100, capped)
@@ -272,7 +285,7 @@ public class MatchScoreService : IMatchScoreService
             ExperienceScore = score.ExperienceScore,
             LocationScore = score.LocationScore,
             MatchedSkills = allJobSkills
-                .Where(s => candidateSkills.Contains(s.ToLowerInvariant()))
+                .Where(js => candidateSkills.Any(cs => _matcher.IsMatch(cs, js, out _)))
                 .ToList(),
             MissingSkills = missing
         };

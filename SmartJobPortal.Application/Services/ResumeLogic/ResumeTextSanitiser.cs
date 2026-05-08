@@ -8,23 +8,20 @@ public static class ResumeTextSanitiser
     // Known prompt injection patterns
     private static readonly string[] InjectionPatterns =
     {
-        @"ignore\s+(all\s+)?(previous|above|prior)\s+instructions?",
-        @"forget\s+(all\s+)?(previous|above|prior)\s+instructions?",
-        @"you\s+are\s+(now|a|an)",
-        @"act\s+as\s+(a|an|if)",
-        @"pretend\s+(you|to\s+be)",
-        @"disregard\s+(all|previous|your)",
-        @"new\s+instructions?",
-        @"system\s*:\s*",
+        @"\bignore\s+(all\s+)?(previous|above|prior)\s+instructions?\b",
+        @"\bforget\s+(all\s+)?(previous|above|prior)\s+instructions?\b",
+        @"\bdisregard\s+(all|previous|your)\b",
+        @"\bnew\s+instructions?\b",
+        @"\bsystem\s+(prompt|message|instruction|role)\b", // Refined from \bsystem\s*:\s*
         @"<\s*system\s*>",
         @"\[INST\]",
         @"###\s*(instruction|system|prompt)",
-        @"do\s+not\s+follow",
-        @"override\s+(your|the|all)",
-        @"jailbreak",
-        @"dan\s+mode",
-        @"developer\s+mode",
-        @"sudo\s+mode"
+        @"\bdo\s+not\s+follow\b",
+        @"\boverride\s+(your|the|all)\b",
+        @"\bjailbreak\b",
+        @"\bdan\s+mode\b",
+        @"\bdeveloper\s+mode\b",
+        @"\bsudo\s+mode\b"
     };
 
     public static string Sanitise(string rawText)
@@ -32,8 +29,10 @@ public static class ResumeTextSanitiser
         if (string.IsNullOrWhiteSpace(rawText))
             return string.Empty;
 
-        // 1 — Normalise whitespace
-        var text = Regex.Replace(rawText, @"\s+", " ");
+        // 1 — Normalise whitespace (preserve newlines for structure)
+        var text = Regex.Replace(rawText, @"[ \t]+", " ");
+        text = Regex.Replace(text, @"(\r\n|\n){2,}", "\n\n"); // Collapse multiple newlines to max 2
+        text = text.Trim();
 
         // 2 — Remove non-printable characters (hidden text tricks)
         text = Regex.Replace(text,
@@ -42,18 +41,14 @@ public static class ResumeTextSanitiser
         // 3 — Remove HTML/XML tags (embedded HTML injection)
         text = Regex.Replace(text, @"<[^>]+>", " ");
 
-        // 4 — Check for prompt injection patterns
-        var injectionFound = InjectionPatterns.Any(pattern =>
-            Regex.IsMatch(text, pattern,
-                RegexOptions.IgnoreCase | RegexOptions.Multiline));
-
-        if (injectionFound)
+        // 4 — Remove prompt injection patterns
+        foreach (var pattern in InjectionPatterns)
         {
-            // Log the attempt (in production, alert security team)
-            Console.WriteLine(
-                $"[SECURITY] Prompt injection attempt detected in resume. " +
-                $"Returning empty text.");
-            return string.Empty; // Reject the entire content
+            if (Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase))
+            {
+                Console.WriteLine($"[SECURITY] Prompt-like pattern removed: {pattern}");
+                text = Regex.Replace(text, pattern, "[REMOVED]", RegexOptions.IgnoreCase);
+            }
         }
 
         // 5 — Limit length (prevents token flooding)
@@ -83,6 +78,6 @@ public static class ResumeTextSanitiser
         var wordCount = suspiciousWords.Count(w =>
             text.Contains(w, StringComparison.OrdinalIgnoreCase));
 
-        return wordCount >= 2;
+        return wordCount >= 3;
     }
 }

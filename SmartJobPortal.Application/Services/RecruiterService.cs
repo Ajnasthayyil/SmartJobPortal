@@ -72,54 +72,90 @@ public class RecruiterService : IRecruiterService
 
     public async Task<ApiResponse<RecruiterProfileResponse>> UpsertProfileAsync(int userId, RecruiterProfileRequest request)
     {
-        var user = await _userRepo.GetByIdAsync(userId);
-        if (user == null) return ApiResponse<RecruiterProfileResponse>.NotFound("User not found.");
+        try
+        {
+            var user = await _userRepo.GetByIdAsync(userId);
+            if (user == null) return ApiResponse<RecruiterProfileResponse>.NotFound("User not found.");
 
-        var existing = await _recruiterRepo.GetByUserIdAsync(userId);
-        var recruiter = existing ?? new Recruiter { UserId = userId };
+            var existing = await _recruiterRepo.GetByUserIdAsync(userId);
+            var recruiter = existing ?? new Recruiter { UserId = userId };
 
-        recruiter.CompanyName = request.CompanyName;
-        recruiter.Website = request.Website;
-        recruiter.Industry = request.Industry;
-        recruiter.Description = request.Description;
-        recruiter.Location = request.Location;
-        recruiter.UpdatedAt = DateTime.Now;
+            recruiter.CompanyName = request.CompanyName;
+            recruiter.Website = request.Website;
+            recruiter.Industry = request.Industry;
+            recruiter.Description = request.Description;
+            recruiter.Location = request.Location;
+            recruiter.UpdatedAt = DateTime.Now;
 
-        var recruiterId = await _recruiterRepo.UpsertAsync(recruiter);
-        recruiter.RecruiterId = recruiterId;
+            var recruiterId = await _recruiterRepo.UpsertAsync(recruiter);
+            recruiter.RecruiterId = recruiterId;
 
-        await _cache.RemoveAsync($"recruiter:profile:{userId}");
-        var totalJobs = await _recruiterRepo.GetTotalJobsPostedAsync(recruiterId);
-        return ApiResponse<RecruiterProfileResponse>.Ok(BuildProfileResponse(recruiter, user, totalJobs));
+            await _cache.RemoveAsync($"recruiter:profile:{userId}");
+            var totalJobs = await _recruiterRepo.GetTotalJobsPostedAsync(recruiterId);
+            return ApiResponse<RecruiterProfileResponse>.Ok(BuildProfileResponse(recruiter, user, totalJobs));
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<RecruiterProfileResponse>.Fail($"Database Error: {ex.Message}", 500);
+        }
     }
 
     // ── Jobs ───────────────────────────────────────────────────────
 
     public async Task<ApiResponse<JobResponse>> PostJobAsync(int userId, PostJobRequest request)
     {
-        var recruiter = await _recruiterRepo.GetByUserIdAsync(userId);
-        if (recruiter == null || !recruiter.IsApproved)
-            return ApiResponse<JobResponse>.Fail("Only approved recruiters can post jobs.", 403);
-
-        var job = new Job
+        try
         {
-            RecruiterId = recruiter.RecruiterId,
-            Title = request.Title,
-            Description = request.Description,
-            Location = request.Location,
-            JobType = request.JobType,
-            MinSalary = request.MinSalary,
-            MaxSalary = request.MaxSalary,
-            MinExperienceYears = request.MinExperienceYears,
-            IsActive = true,
-            PostedAt = DateTime.Now,
-            ExpiresAt = DateTime.Now.AddDays(30)
-        };
+            var recruiter = await _recruiterRepo.GetByUserIdAsync(userId);
+            if (recruiter == null || !recruiter.IsApproved)
+                return ApiResponse<JobResponse>.Fail("Only approved recruiters can post jobs.", 403);
 
-        var jobId = await _jobRepo.CreateJobAsync(job);
-        job.JobId = jobId;
+            var job = new Job
+            {
+                RecruiterId = recruiter.RecruiterId,
+                Title = request.Title,
+                Description = request.Description,
+                Location = request.Location,
+                JobType = request.JobType,
+                MinSalary = request.MinSalary,
+                MaxSalary = request.MaxSalary,
+                MinExperienceYears = request.MinExperienceYears,
+                IsActive = true,
+                PostedAt = DateTime.Now,
+                ExpiresAt = DateTime.Now.AddDays(30),
+                UpdatedAt = DateTime.Now
+            };
 
-        return ApiResponse<JobResponse>.Ok(await BuildJobResponseAsync(job, new(), 0), "Job posted successfully.");
+            var jobId = await _jobRepo.CreateJobAsync(job);
+            job.JobId = jobId;
+
+            // ── SAVE SKILLS ──
+            var skillIds = new List<int>();
+            if (request.RequiredSkills != null && request.RequiredSkills.Any())
+            {
+                foreach (var s in request.RequiredSkills)
+                {
+                    var name = s.Trim();
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    var skillId = await _candidateRepo.GetSkillIdByNameAsync(name)
+                                  ?? await _candidateRepo.CreateSkillAsync(name);
+                    skillIds.Add(skillId);
+                }
+
+                if (skillIds.Any())
+                {
+                    await _jobRepo.ReplaceJobSkillsAsync(jobId, skillIds);
+                }
+            }
+
+            var finalSkills = await _jobRepo.GetJobSkillsAsync(jobId);
+            return ApiResponse<JobResponse>.Ok(await BuildJobResponseAsync(job, finalSkills, 0), "Job posted successfully.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<JobResponse>.Fail($"Failed to post job: {ex.Message}", 500);
+        }
     }
 
     public async Task<ApiResponse<List<JobResponse>>> GetMyJobsAsync(int userId)
@@ -147,24 +183,53 @@ public class RecruiterService : IRecruiterService
 
     public async Task<ApiResponse<JobResponse>> UpdateJobAsync(int userId, int jobId, UpdateJobRequest request)
     {
-        var recruiter = await _recruiterRepo.GetByUserIdAsync(userId);
-        if (recruiter == null) return ApiResponse<JobResponse>.Fail("Access denied.", 403);
+        try
+        {
+            var recruiter = await _recruiterRepo.GetByUserIdAsync(userId);
+            if (recruiter == null) return ApiResponse<JobResponse>.Fail("Access denied.", 403);
 
-        var job = await _jobRepo.GetJobByIdAsync(jobId);
-        if (job == null || job.RecruiterId != recruiter.RecruiterId)
-            return ApiResponse<JobResponse>.NotFound("Job not found.");
+            var job = await _jobRepo.GetJobByIdAsync(jobId);
+            if (job == null || job.RecruiterId != recruiter.RecruiterId)
+                return ApiResponse<JobResponse>.NotFound("Job not found.");
 
-        job.Title = request.Title;
-        job.Description = request.Description;
-        job.Location = request.Location;
-        job.JobType = request.JobType;
-        job.MinSalary = request.MinSalary;
-        job.MaxSalary = request.MaxSalary;
-        job.MinExperienceYears = request.MinExperienceYears;
-        job.IsActive = request.IsActive;
+            job.Title = request.Title;
+            job.Description = request.Description;
+            job.Location = request.Location;
+            job.JobType = request.JobType;
+            job.MinSalary = request.MinSalary;
+            job.MaxSalary = request.MaxSalary;
+            job.MinExperienceYears = request.MinExperienceYears;
+            job.IsActive = request.IsActive;
+            job.UpdatedAt = DateTime.Now;
 
-        await _jobRepo.UpdateJobAsync(job);
-        return ApiResponse<JobResponse>.Ok(await BuildJobResponseAsync(job, new(), 0));
+            await _jobRepo.UpdateJobAsync(job);
+
+            // Bust cache
+            await _cache.RemoveAsync($"job:{jobId}");
+
+            // ── UPDATE SKILLS ──
+            if (request.RequiredSkills != null)
+            {
+                var skillIds = new List<int>();
+                foreach (var s in request.RequiredSkills)
+                {
+                    var name = s.Trim();
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    var skillId = await _candidateRepo.GetSkillIdByNameAsync(name)
+                                  ?? await _candidateRepo.CreateSkillAsync(name);
+                    skillIds.Add(skillId);
+                }
+                await _jobRepo.ReplaceJobSkillsAsync(jobId, skillIds);
+            }
+
+            var finalSkills = await _jobRepo.GetJobSkillsAsync(jobId);
+            return ApiResponse<JobResponse>.Ok(await BuildJobResponseAsync(job, finalSkills, 0), "Job updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<JobResponse>.Fail($"Failed to update job: {ex.Message}", 500);
+        }
     }
 
     public async Task<ApiResponse<string>> DeleteJobAsync(int userId, int jobId)
@@ -174,6 +239,9 @@ public class RecruiterService : IRecruiterService
 
         var deleted = await _jobRepo.SoftDeleteJobAsync(jobId, recruiter.RecruiterId);
         if (!deleted) return ApiResponse<string>.NotFound("Job not found.");
+
+        // Bust cache
+        await _cache.RemoveAsync($"job:{jobId}");
 
         return ApiResponse<string>.Ok("Job deleted successfully.");
     }
@@ -185,6 +253,9 @@ public class RecruiterService : IRecruiterService
 
         var toggled = await _jobRepo.ToggleJobStatusAsync(jobId, recruiter.RecruiterId);
         if (!toggled) return ApiResponse<string>.NotFound("Job not found.");
+
+        // Bust cache
+        await _cache.RemoveAsync($"job:{jobId}");
 
         return ApiResponse<string>.Ok("Status toggled successfully.");
     }

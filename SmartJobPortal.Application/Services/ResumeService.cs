@@ -15,6 +15,7 @@ namespace SmartJobPortal.Application.Services;
 public class ResumeService : IResumeService
 {
     private readonly ICandidateRepository _candidateRepo;
+    private readonly IUserRepository _userRepo;
     private readonly ICacheService _cache;
     private readonly IConfiguration _config;
     private readonly IGeminiService _gemini;
@@ -23,11 +24,13 @@ public class ResumeService : IResumeService
 
     public ResumeService(
         ICandidateRepository candidateRepo,
+        IUserRepository userRepo,
         ICacheService cache,
         IConfiguration config,
         IGeminiService gemini)
     {
         _candidateRepo = candidateRepo;
+        _userRepo = userRepo;
         _cache = cache;
         _config = config;
         _gemini = gemini;
@@ -61,6 +64,7 @@ public class ResumeService : IResumeService
 
         if (string.IsNullOrWhiteSpace(sanitisedText))
         {
+            Console.WriteLine($"[SECURITY] Sanitised text is empty for user {userId}. Original length: {rawText?.Length ?? 0}");
             return ApiResponse<ResumeParseResponse>.Fail(
                 "Your resume could not be processed. Please ensure it " +
                 "contains only professional content and try again.");
@@ -102,13 +106,28 @@ public class ResumeService : IResumeService
             await file.CopyToAsync(stream);
         }
 
-        // ── Update or Create candidate record ───────────────────
+        // ── Update or Create records ────────────────────────────
         var existingCandidate = await _candidateRepo.GetByUserIdAsync(userId);
         var candidate = existingCandidate ?? new Candidate { UserId = userId };
+        var user = await _userRepo.GetByIdAsync(userId);
 
         candidate.ResumeFilePath = filePath;
         candidate.ResumeOriginalName = SanitiseFileName(file.FileName);
         candidate.ResumeUploadedAt = DateTime.Now;
+
+        // Use AI results to enrich profile if available
+        if (aiData != null && user != null)
+        {
+            var newName = !string.IsNullOrEmpty(aiData.FullName) ? aiData.FullName : user.FullName;
+            var newPhone = !string.IsNullOrEmpty(aiData.Phone) ? aiData.Phone : user.PhoneNumber;
+            
+            if (newName != user.FullName || newPhone != user.PhoneNumber)
+            {
+                await _userRepo.UpdateProfileAsync(userId, newName, newPhone);
+                // Refresh user object after update
+                user = await _userRepo.GetByIdAsync(userId);
+            }
+        }
 
         // Use AI experience if available, else fallback to whitelist
         var finalExp = aiData?.TotalExperience > 0 ? aiData.TotalExperience : extraction.ExperienceYears;
@@ -120,9 +139,15 @@ public class ResumeService : IResumeService
 
         // ── Merge Data ──────────────────────────────────────────
         
-        // 1: Merge Skills (from whitelist)
-        if (extraction.Skills.Any())
-            await MergeSkillsAsync(candidateId, extraction.Skills);
+        // 1: Merge Skills (Combine AI results with Whitelist fallback)
+        var allSkills = new HashSet<string>(extraction.Skills, StringComparer.OrdinalIgnoreCase);
+        if (aiData?.Skills != null)
+        {
+            foreach (var s in aiData.Skills) allSkills.Add(s);
+        }
+
+        if (allSkills.Any())
+            await MergeSkillsAsync(candidateId, allSkills.ToList());
 
         // 2: Merge Education (from AI)
         if (aiData?.Education?.Any() == true)
@@ -135,18 +160,19 @@ public class ResumeService : IResumeService
         await _cache.RemoveAsync($"candidate:profile:{userId}");
 
         return ApiResponse<ResumeParseResponse>.Ok(new ResumeParseResponse
-        {
-            Message = "Resume processed with AI enhancement.",
-            ParsedData = new ResumeDto
             {
-                FullName = candidate.ResumeOriginalName,
-                Email = aiData?.Email ?? extraction.Email,
-                Skills = extraction.Skills,
-                TotalExperience = finalExp,
-                Education = aiData?.Education ?? new(),
-                WorkExperience = aiData?.WorkExperience ?? new()
-            }
-        }, "Resume processed successfully.");
+                Message = "Resume processed with AI enhancement.",
+                ParsedData = new ResumeDto
+                {
+                    FullName = user?.FullName ?? candidate.ResumeOriginalName,
+                    Email = user?.Email ?? aiData?.Email ?? extraction.Email,
+                    Phone = user?.PhoneNumber ?? aiData?.Phone,
+                    Skills = allSkills.ToList(),
+                    TotalExperience = finalExp,
+                    Education = aiData?.Education ?? new(),
+                    WorkExperience = aiData?.WorkExperience ?? new()
+                }
+            }, "Resume processed successfully.");
     }
 
     public async Task<(byte[] bytes, string contentType, string fileName)?> GetResumeFileAsync(int userId)
@@ -210,8 +236,13 @@ public class ResumeService : IResumeService
 
     private async Task MergeEducationAsync(int candidateId, List<EducationDto> education)
     {
-        var existing = (await _candidateRepo.GetEducationAsync(candidateId)).Select(e => e.Degree.ToLower()).ToHashSet();
-        var toAdd = education.Where(e => !existing.Contains(e.Degree.ToLower())).Select(e => new CandidateEducation
+        var existing = (await _candidateRepo.GetEducationAsync(candidateId))
+            .Select(e => (e.Degree ?? "").ToLower())
+            .ToHashSet();
+
+        var toAdd = education
+            .Where(e => !string.IsNullOrEmpty(e.Degree) && !existing.Contains(e.Degree.ToLower()))
+            .Select(e => new CandidateEducation
         {
             CandidateId = candidateId,
             Degree = e.Degree,
@@ -223,8 +254,13 @@ public class ResumeService : IResumeService
 
     private async Task MergeExperienceAsync(int candidateId, List<ExperienceDto> experience)
     {
-        var existing = (await _candidateRepo.GetExperienceAsync(candidateId)).Select(e => e.Role.ToLower()).ToHashSet();
-        var toAdd = experience.Where(e => !existing.Contains(e.Role.ToLower())).Select(e => new CandidateExperience
+        var existing = (await _candidateRepo.GetExperienceAsync(candidateId))
+            .Select(e => (e.Role ?? "").ToLower())
+            .ToHashSet();
+
+        var toAdd = experience
+            .Where(e => !string.IsNullOrEmpty(e.Role) && !existing.Contains(e.Role.ToLower()))
+            .Select(e => new CandidateExperience
         {
             CandidateId = candidateId,
             Company = e.Company,

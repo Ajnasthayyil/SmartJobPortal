@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Application.DTOs.Admin;
+namespace SmartJobPortal.Application.DTOs.Admin;
 
 public class RecruiterApprovalResponse
 {
@@ -11,6 +11,7 @@ public class RecruiterApprovalResponse
     public string? Industry { get; set; }
     public string? Location { get; set; }
     public string? Website { get; set; }
+    public string? Description { get; set; }
     public bool IsApproved { get; set; }
     public bool IsActive { get; set; }
     public DateTime RegisteredAt { get; set; }

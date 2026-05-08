@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Domain.Entities;
 using SmartJobPortal.Infrastructure.Data;
@@ -42,9 +42,10 @@ public class RecruiterRepository : IRecruiterRepository
                     UpdatedAt   = @UpdatedAt
             WHEN NOT MATCHED THEN
                 INSERT (UserId, CompanyName, Website, Industry,
-                        Description, Location, CreatedAt, UpdatedAt)
-                VALUES (@UserId, @CompanyName, @Website, @Industry,
-                        @Description, @Location, @CreatedAt, @UpdatedAt)
+                        Description, Location, IsApproved, CreatedAt, UpdatedAt)
+                SELECT u.UserId, @CompanyName, @Website, @Industry,
+                       @Description, @Location, u.IsApproved, @CreatedAt, @UpdatedAt
+                FROM Users u WHERE u.UserId = @UserId
             OUTPUT INSERTED.RecruiterId;
             """, r);
     }

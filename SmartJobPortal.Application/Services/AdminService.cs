@@ -119,26 +119,33 @@ public class AdminService : IAdminService
 
     public async Task<ApiResponse<string>> ApproveRecruiterAsync(int userId)
     {
-        var recruiter = await _adminRepo.GetRecruiterApprovalByUserIdAsync(userId);
-        if (recruiter == null)
-            return ApiResponse<string>.NotFound("Recruiter not found.");
+        try 
+        {
+            var recruiter = await _adminRepo.GetRecruiterApprovalByUserIdAsync(userId);
+            if (recruiter == null)
+                return ApiResponse<string>.NotFound("Recruiter not found.");
 
-        if (recruiter.IsApproved)
-            return ApiResponse<string>.Fail("Recruiter is already approved.");
+            if (recruiter.IsApproved)
+                return ApiResponse<string>.Fail("Recruiter is already approved.");
 
-        await _adminRepo.ApproveRecruiterAsync(userId);
+            await _adminRepo.ApproveRecruiterAsync(userId);
 
-        // ── FIRE NOTIFICATION ──
-        var (title, message, type) = NotificationTemplates.RecruiterApproved(recruiter.FullName);
-        await _notificationService.CreateAsync(userId, title, message, type);
+            // ── FIRE NOTIFICATION ──
+            var (title, message, type) = NotificationTemplates.RecruiterApproved(recruiter.FullName);
+            await _notificationService.CreateAsync(userId, title, message, type);
 
-        // Bust caches
-        await _cache.RemoveAsync($"user:{userId}");
-        await _cache.RemoveAsync($"user:email:{recruiter.Email}");
-        await _cache.RemoveAsync($"recruiter:profile:{userId}");
-        await _cache.RemoveAsync("admin:dashboard");
+            // Bust caches
+            await _cache.RemoveAsync($"user:{userId}");
+            await _cache.RemoveAsync($"user:email:{recruiter.Email}");
+            await _cache.RemoveAsync($"recruiter:profile:{userId}");
+            await _cache.RemoveAsync("admin:dashboard");
 
-        return ApiResponse<string>.Ok($"Recruiter '{recruiter.FullName}' approved.");
+            return ApiResponse<string>.Ok($"Recruiter '{recruiter.FullName}' approved.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<string>.Fail($"Approval error: {ex.Message}");
+        }
     }
 
     public async Task<ApiResponse<string>> RejectRecruiterAsync(int userId)

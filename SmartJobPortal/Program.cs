@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.Common.Utilities;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Application.Services;
 using SmartJobPortal.Infrastructure.Data;
@@ -88,6 +89,7 @@ builder.Services.AddScoped<IResumeService, ResumeService>();
 builder.Services.AddScoped<IJobSearchService, JobSearchService>();
 builder.Services.AddScoped<IMatchScoreService, MatchScoreService>();
 builder.Services.AddScoped<IPhotoService, PhotoService>();
+builder.Services.AddSingleton<ISemanticMatcher, SemanticMatcher>();
 
 builder.Services.AddHttpClient<IGeminiService, GeminiFormatterService>();
 builder.Services.AddScoped<IGeminiService, GeminiFormatterService>();
