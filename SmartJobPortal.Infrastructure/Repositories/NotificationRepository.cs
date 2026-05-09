@@ -27,10 +27,11 @@ public class NotificationRepository : INotificationRepository
         _schemaChecked = true;
     }
 
-    public async Task InsertAsync(
+    public async Task<int> InsertAsync(
         int userId, string title,
         string message, string type,
         string? jobTitle = null, string? companyName = null)
+
     {
         await EnsureSchemaAsync();
         using var conn = _factory.CreateConnection();
@@ -38,11 +39,12 @@ public class NotificationRepository : INotificationRepository
         // If we have jobTitle/companyName, let's try to find a JobId if it's missing (optional logic)
         // But for now, we'll just insert what we have.
         
-        await conn.ExecuteAsync("""
+        return await conn.ExecuteScalarAsync<int>("""
             INSERT INTO Notifications
                 (UserId, Title, Message, Type, IsRead, CreatedAt, JobTitle, CompanyName)
             VALUES
-                (@UserId, @Title, @Message, @Type, 0, GETDATE(), @JobTitle, @CompanyName)
+                (@UserId, @Title, @Message, @Type, 0, GETDATE(), @JobTitle, @CompanyName);
+            SELECT SCOPE_IDENTITY();
             """, new
         {
             UserId = userId,
@@ -52,6 +54,7 @@ public class NotificationRepository : INotificationRepository
             JobTitle = jobTitle,
             CompanyName = companyName
         });
+
     }
 
     public async Task<List<NotificationResponse>>

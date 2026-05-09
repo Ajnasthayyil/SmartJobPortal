@@ -11,6 +11,10 @@ using SmartJobPortal.Infrastructure.Data;
 using SmartJobPortal.Infrastructure.Repositories;
 using SmartJobPortal.Infrastructure.Services;
 using System.Text;
+using SmartJobPortal.API.Hubs;
+using SmartJobPortal.API.Services;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +25,8 @@ builder.Services.AddControllers()
         opts.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
         opts.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
     });
+builder.Services.AddSignalR();
+
 
 //Add CORS
 builder.Services.AddCors(options =>
@@ -106,7 +112,9 @@ builder.Services.AddScoped<DataSeeder>();
 
 // ── Notification module ───────────────────────────────────────
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
 
 // JWT
 builder.Services.AddAuthentication("Bearer")
@@ -133,13 +141,23 @@ builder.Services.AddAuthentication("Bearer")
     {
         OnMessageReceived = context =>
         {
-            var token = context.Request.Cookies["AuthToken"];
-            if (!string.IsNullOrEmpty(token))
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
             {
-                context.Token = token;
+                context.Token = accessToken;
+            }
+            else
+            {
+                var token = context.Request.Cookies["AuthToken"];
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
             }
             return Task.CompletedTask;
         },
+
         OnChallenge = context =>
         {
             context.HandleResponse();
@@ -202,5 +220,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
+
 
 app.Run();

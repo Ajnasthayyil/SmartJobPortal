@@ -4,7 +4,7 @@ namespace SmartJobPortal.Application.Interfaces;
 
 public interface INotificationRepository
 {
-    Task InsertAsync(int userId, string title,
+    Task<int> InsertAsync(int userId, string title,
                      string message, string type,
                      string? jobTitle = null, string? companyName = null);
 

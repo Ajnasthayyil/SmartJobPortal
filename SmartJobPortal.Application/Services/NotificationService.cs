@@ -7,9 +7,14 @@ namespace SmartJobPortal.Application.Services;
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _repo;
+    private readonly INotificationHubService _hubService;
 
-    public NotificationService(INotificationRepository repo)
-        => _repo = repo;
+    public NotificationService(INotificationRepository repo, INotificationHubService hubService)
+    {
+        _repo = repo;
+        _hubService = hubService;
+    }
+
 
     // ── Create ─────────────────────────────────────────────────────
     public async Task<ApiResponse<string>> CreateAsync(
@@ -17,8 +22,26 @@ public class NotificationService : INotificationService
     {
         try
         {
-            await _repo.InsertAsync(userId, title, message, type, jobTitle, companyName);
+            int notificationId = await _repo.InsertAsync(userId, title, message, type, jobTitle, companyName);
+            
+            // Send real-time notification via SignalR
+            var notification = new NotificationResponse
+            {
+                NotificationId = notificationId,
+                Title = title,
+                Message = message,
+                Type = type,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+                JobTitle = jobTitle,
+                CompanyName = companyName
+            };
+
+            await _hubService.SendNotificationAsync(userId, notification);
+
             return ApiResponse<string>.Ok("Notification sent.");
+
+
         }
         catch (Exception ex)
         {
