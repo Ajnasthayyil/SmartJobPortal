@@ -1,5 +1,6 @@
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Recruiter;
+using SmartJobPortal.Application.DTOs.Candidate;
 
 namespace SmartJobPortal.Application.Interfaces;
 
@@ -24,4 +25,6 @@ public interface IRecruiterService
     Task<ApiResponse<List<ApplicantResponse>>> GetRankedApplicantsAsync(int userId, int jobId);
     Task<ApiResponse<string>> UpdateApplicationStatusAsync(int userId,
         int applicationId, UpdateStatusRequest request);
+
+    Task<ApiResponse<CandidateProfileResponse>> GetCandidateProfileAsync(int candidateUserId);
 }

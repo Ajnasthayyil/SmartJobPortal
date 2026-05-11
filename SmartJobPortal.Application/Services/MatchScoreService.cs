@@ -61,7 +61,19 @@ public class MatchScoreService : IMatchScoreService
 
         var candidate = await _candidateRepo.GetByUserIdAsync(userId);
         if (candidate == null)
-            return ApiResponse<List<MatchScoreResponse>>.Ok(new());
+        {
+            // For candidates who haven't filled their profile, return 0% match for everything
+            return ApiResponse<List<MatchScoreResponse>>.Ok(jobIds.Select(id => new MatchScoreResponse
+            {
+                JobId = id,
+                TotalScore = 0,
+                SkillScore = 0,
+                ExperienceScore = 0,
+                LocationScore = 0,
+                MatchedSkills = new(),
+                MissingSkills = new()
+            }).ToList());
+        }
 
         var results = new List<MatchScoreResponse>();
         var candidateSkills = (await _candidateRepo.GetSkillsAsync(candidate.CandidateId))

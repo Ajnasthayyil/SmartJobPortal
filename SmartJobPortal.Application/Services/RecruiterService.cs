@@ -3,6 +3,7 @@ using SmartJobPortal.Application.DTOs.Recruiter;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Domain.Entities;
 using SmartJobPortal.Application.DTOs.NotificationDTOs;
+using SmartJobPortal.Application.DTOs.Candidate;
 
 namespace SmartJobPortal.Application.Services;
 
@@ -304,6 +305,65 @@ public class RecruiterService : IRecruiterService
         }
 
         return ApiResponse<string>.Ok($"Status updated to {request.Status}.");
+    }
+
+    public async Task<ApiResponse<CandidateProfileResponse>> GetCandidateProfileAsync(int candidateUserId)
+    {
+        var user = await _userRepo.GetByIdAsync(candidateUserId);
+        if (user == null) return ApiResponse<CandidateProfileResponse>.NotFound("User not found.");
+
+        var candidate = await _candidateRepo.GetByUserIdAsync(candidateUserId);
+        if (candidate == null)
+        {
+            return ApiResponse<CandidateProfileResponse>.Ok(new CandidateProfileResponse
+            {
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email
+            });
+        }
+
+        var (skills, education, experience) = await _candidateRepo.GetFullProfileDataAsync(candidate.CandidateId);
+
+        var response = new CandidateProfileResponse
+        {
+            CandidateId = candidate.CandidateId,
+            UserId = user.UserId,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Headline = candidate.Headline,
+            Summary = candidate.Summary,
+            Location = candidate.Location,
+            ExperienceYears = candidate.ExperienceYears,
+            HasResume = candidate.HasResume(),
+            ResumeOriginalName = candidate.ResumeOriginalName,
+            ResumeUploadedAt = candidate.ResumeUploadedAt,
+            Skills = skills.Select(s => new SkillResponse
+            {
+                SkillId = s.SkillId,
+                SkillName = s.SkillName,
+                Level = s.Level,
+                Category = s.Category
+            }).ToList(),
+            Education = education.Select(e => new EducationResponse
+            {
+                EducationId = e.EducationId,
+                Degree = e.Degree,
+                Institution = e.Institution,
+                GraduationYear = e.GraduationYear
+            }).ToList(),
+            WorkExperience = experience.Select(e => new ExperienceResponse
+            {
+                ExperienceId = e.ExperienceId,
+                Company = e.Company,
+                Role = e.Role,
+                Duration = e.Duration,
+                Description = e.Description
+            }).ToList()
+        };
+
+        return ApiResponse<CandidateProfileResponse>.Ok(response);
     }
 
     // ── Helpers ──────────────────────────────────────────────────

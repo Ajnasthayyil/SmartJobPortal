@@ -136,4 +136,11 @@ public class RecruiterController : ControllerBase
 
         return File(file.Value.bytes, file.Value.contentType, file.Value.fileName);
     }
+
+    [HttpGet("candidates/{candidateUserId:int}/profile")]
+    public async Task<IActionResult> GetCandidateProfile(int candidateUserId)
+    {
+        var result = await _recruiterService.GetCandidateProfileAsync(candidateUserId);
+        return StatusCode(result.StatusCode, result);
+    }
 }
