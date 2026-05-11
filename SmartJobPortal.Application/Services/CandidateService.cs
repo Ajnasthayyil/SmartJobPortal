@@ -89,7 +89,9 @@ public class CandidateService : ICandidateService
             var skillRows = new List<CandidateSkill>();
             foreach (var s in request.Skills)
             {
-                var name = s.SkillName.Trim();
+                var name = s.SkillName?.Trim();
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
                 var skillId = await _candidateRepo.GetSkillIdByNameAsync(name)
                               ?? await _candidateRepo.CreateSkillAsync(name);
 
@@ -144,7 +146,8 @@ public class CandidateService : ICandidateService
         }
         catch (Exception ex)
         {
-            return ApiResponse<CandidateProfileResponse>.Fail($"Database Error: {ex.Message}", 500);
+            Console.WriteLine($"[Profile Update Error] User {userId}: {ex}");
+            return ApiResponse<CandidateProfileResponse>.Fail($"Update Failed: {ex.Message}", 500);
         }
     }
 

@@ -149,7 +149,6 @@ public class RecruiterJobRepository : IRecruiterJobRepository
     public async Task ReplaceJobSkillsAsync(int jobId, List<int> skillIds)
     {
         using var conn = _factory.CreateConnection();
-        conn.Open();
         using var tx = conn.BeginTransaction();
 
         await conn.ExecuteAsync(

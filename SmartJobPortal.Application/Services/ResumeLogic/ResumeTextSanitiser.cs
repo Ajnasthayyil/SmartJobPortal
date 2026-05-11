@@ -29,19 +29,19 @@ public static class ResumeTextSanitiser
         if (string.IsNullOrWhiteSpace(rawText))
             return string.Empty;
 
-        // 1 — Normalise whitespace (preserve newlines for structure)
+        // Normalise whitespace (preserve newlines for structure)
         var text = Regex.Replace(rawText, @"[ \t]+", " ");
         text = Regex.Replace(text, @"(\r\n|\n){2,}", "\n\n"); // Collapse multiple newlines to max 2
         text = text.Trim();
 
-        // 2 — Remove non-printable characters (hidden text tricks)
+        //  Remove non-printable characters (hidden text tricks)
         text = Regex.Replace(text,
             @"[^\x20-\x7E\u00A0-\uFFFF\n\r\t]", " ");
 
-        // 3 — Remove HTML/XML tags (embedded HTML injection)
+        // Remove HTML/XML tags (embedded HTML injection)
         text = Regex.Replace(text, @"<[^>]+>", " ");
 
-        // 4 — Remove prompt injection patterns
+        //  Remove prompt injection patterns
         foreach (var pattern in InjectionPatterns)
         {
             if (Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase))
@@ -51,7 +51,7 @@ public static class ResumeTextSanitiser
             }
         }
 
-        // 5 — Limit length (prevents token flooding)
+        // Limit length (prevents token flooding)
         if (text.Length > 15_000)
             text = text[..15_000];
 

@@ -42,7 +42,7 @@ public static class NotificationTemplates
         };
     }
 
-    // ── Admin actions ─────────────────────────────────────────────
+    //  Admin actions
     public static (string title, string message, string type)
         RecruiterApproved(string fullName)
     => (
@@ -75,7 +75,7 @@ public static class NotificationTemplates
         "continue using Talex.",
         "AccountActive");
 
-    // ── Job match ─────────────────────────────────────────────────
+    //  Job match 
     public static (string title, string message, string type)
         NewJobMatch(string jobTitle, string companyName, int matchScore)
     => (

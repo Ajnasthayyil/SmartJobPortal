@@ -8,7 +8,7 @@ public class CandidateProfileRequest
     [StringLength(150, ErrorMessage = "Headline must not exceed 150 characters")]
     public string Headline { get; set; } = string.Empty;
 
-    [StringLength(1000, ErrorMessage = "Summary must not exceed 1000 characters")]
+    [StringLength(5000, ErrorMessage = "Summary must not exceed 5000 characters")]
     public string Summary { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Location is required")]

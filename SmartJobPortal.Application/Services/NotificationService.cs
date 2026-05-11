@@ -16,7 +16,7 @@ public class NotificationService : INotificationService
     }
 
 
-    // ── Create ─────────────────────────────────────────────────────
+    //  Create 
     public async Task<ApiResponse<string>> CreateAsync(
         int userId, string title, string message, string type, string? jobTitle = null, string? companyName = null)
     {
@@ -49,7 +49,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    // ── Get all for user ─────────────────────────────────────────
+    //  Get all for user 
     public async Task<ApiResponse<List<NotificationResponse>>>
         GetUserNotificationsAsync(int userId)
     {
@@ -57,7 +57,7 @@ public class NotificationService : INotificationService
         return ApiResponse<List<NotificationResponse>>.Ok(list);
     }
 
-    // ── Get unread count ─────────────────────────────────────────
+    //  Get unread count 
     public async Task<ApiResponse<UnreadCountResponse>>
         GetUnreadCountAsync(int userId)
     {
@@ -66,7 +66,7 @@ public class NotificationService : INotificationService
             new UnreadCountResponse { Count = count });
     }
 
-    // ── Mark single as read ──────────────────────────────────────
+    //  Mark single as read 
     public async Task<ApiResponse<string>>
         MarkAsReadAsync(int userId, int notificationId)
     {
@@ -74,7 +74,7 @@ public class NotificationService : INotificationService
         return ApiResponse<string>.Ok("Marked as read.");
     }
 
-    // ── Mark all as read ─────────────────────────────────────────
+    //  Mark all as read 
     public async Task<ApiResponse<string>>
         MarkAllAsReadAsync(int userId)
     {

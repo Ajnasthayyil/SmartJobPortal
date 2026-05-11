@@ -33,14 +33,14 @@ public class SemanticMatcher : ISemanticMatcher
             return false;
         }
 
-        // 1. Exact Match
+        //  Exact Match
         if (string.Equals(candidateSkill.Trim(), jobSkill.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             reason = "Exact match found.";
             return true;
         }
 
-        // 2. Normalize (Remove punctuation, noise words, extra spaces)
+        //  Normalize (Remove punctuation, noise words, extra spaces)
         var cNorm = Normalize(candidateSkill);
         var jNorm = Normalize(jobSkill);
 
@@ -50,7 +50,7 @@ public class SemanticMatcher : ISemanticMatcher
             return true;
         }
 
-        // 3. Synonym Match
+        //  Synonym Match
         if (_synonyms.TryGetValue(cNorm, out var cSyns) && cSyns.Any(s => string.Equals(Normalize(s), jNorm, StringComparison.OrdinalIgnoreCase)))
         {
             reason = $"Synonym match: '{candidateSkill}' is recognized as a professional synonym for '{jobSkill}'.";
@@ -63,7 +63,7 @@ public class SemanticMatcher : ISemanticMatcher
             return true;
         }
 
-        // 4. Partial Match (e.g. "React.js" contains "React")
+        //  Partial Match (e.g. "React.js" contains "React")
         if (cNorm.Contains(jNorm) || jNorm.Contains(cNorm))
         {
             reason = $"Partial match: One term contains the other ('{cNorm}' vs '{jNorm}').";

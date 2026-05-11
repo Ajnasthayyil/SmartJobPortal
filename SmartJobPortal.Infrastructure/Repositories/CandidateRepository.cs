@@ -69,7 +69,6 @@ public class CandidateRepository : ICandidateRepository
     public async Task ReplaceSkillsAsync(int candidateId, List<CandidateSkill> skills)
     {
         using var conn = _factory.CreateConnection();
-        conn.Open();
         using var tx = conn.BeginTransaction();
 
         await conn.ExecuteAsync(

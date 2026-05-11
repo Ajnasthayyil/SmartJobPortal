@@ -13,6 +13,7 @@ public class JobListItem
 {
     public int JobId { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string JobType { get; set; } = string.Empty;

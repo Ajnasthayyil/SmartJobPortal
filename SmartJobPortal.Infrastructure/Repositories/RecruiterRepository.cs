@@ -29,8 +29,9 @@ public class RecruiterRepository : IRecruiterRepository
     {
         using var conn = _factory.CreateConnection();
         return await conn.ExecuteScalarAsync<int>("""
+            SET NOCOUNT ON;
             MERGE Recruiters AS target
-            USING (SELECT @UserId AS UserId) AS source
+            USING (SELECT UserId, IsApproved FROM Users WHERE UserId = @UserId) AS source
                 ON target.UserId = source.UserId
             WHEN MATCHED THEN
                 UPDATE SET
@@ -43,9 +44,8 @@ public class RecruiterRepository : IRecruiterRepository
             WHEN NOT MATCHED THEN
                 INSERT (UserId, CompanyName, Website, Industry,
                         Description, Location, IsApproved, CreatedAt, UpdatedAt)
-                SELECT u.UserId, @CompanyName, @Website, @Industry,
-                       @Description, @Location, u.IsApproved, @CreatedAt, @UpdatedAt
-                FROM Users u WHERE u.UserId = @UserId
+                VALUES (source.UserId, @CompanyName, @Website, @Industry,
+                        @Description, @Location, source.IsApproved, @CreatedAt, @UpdatedAt)
             OUTPUT INSERTED.RecruiterId;
             """, r);
     }
