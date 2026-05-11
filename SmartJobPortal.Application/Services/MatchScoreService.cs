@@ -62,7 +62,6 @@ public class MatchScoreService : IMatchScoreService
         var candidate = await _candidateRepo.GetByUserIdAsync(userId);
         if (candidate == null)
         {
-            // For candidates who haven't filled their profile, return 0% match for everything
             return ApiResponse<List<MatchScoreResponse>>.Ok(jobIds.Select(id => new MatchScoreResponse
             {
                 JobId = id,
@@ -79,6 +78,10 @@ public class MatchScoreService : IMatchScoreService
         var candidateSkills = (await _candidateRepo.GetSkillsAsync(candidate.CandidateId))
             .Select(s => s.SkillName.ToLowerInvariant())
             .ToHashSet();
+
+        // Fetch candidate roles once for bulk calculation
+        var experiences = await _candidateRepo.GetExperienceAsync(candidate.CandidateId);
+        var candidateRoles = experiences.Select(e => e.Role).ToList();
 
         // 1. Check cache first for all IDs
         var missingJobIds = new List<int>();
@@ -103,7 +106,7 @@ public class MatchScoreService : IMatchScoreService
         {
             if (!jobMap.TryGetValue(jobId, out var job)) continue;
 
-            var score = CalculateInMemory(candidate, candidateSkills, job);
+            var score = CalculateInMemory(candidate, candidateSkills, candidateRoles, job);
             await _matchScoreRepo.UpsertAsync(score);
             
             var response = BuildResponseInMemory(score, candidateSkills, job);
@@ -114,7 +117,73 @@ public class MatchScoreService : IMatchScoreService
         return ApiResponse<List<MatchScoreResponse>>.Ok(results);
     }
 
-    private MatchScore CalculateInMemory(Candidate candidate, HashSet<string> candidateSkills, JobDetail job)
+    /// <summary>
+    /// Calculates role relevance based on keyword families and partial overlaps.
+    /// Returns a score between 0 and 100.
+    /// </summary>
+    private int CalculateRoleRelevance(string jobTitle, List<string> candidateRoles)
+    {
+        if (string.IsNullOrWhiteSpace(jobTitle) || candidateRoles == null || !candidateRoles.Any())
+            return 0;
+
+        var jobTitleNorm = jobTitle.ToLowerInvariant().Trim();
+        var candidateRolesNorm = candidateRoles.Select(r => r.ToLowerInvariant().Trim()).ToList();
+
+        // Define Role Families for cross-referencing
+        var families = new Dictionary<string, List<string>>
+        {
+            ["Frontend Developer"] = new() { "frontend developer", "ui developer", "angular developer", "react developer", "web developer", "frontend engineer" },
+            ["Backend Developer"] = new() { "backend developer", ".net developer", "asp.net developer", "api developer", "backend engineer", "c# developer" },
+            ["Full Stack Developer"] = new() { "full stack developer", "software engineer", "application developer", "software developer" },
+            ["Data Analyst"] = new() { "data analyst", "business analyst", "data scientist", "bi analyst" },
+            ["Accountant"] = new() { "accountant", "financial accountant", "auditor", "tax accountant" }
+        };
+
+        // Determine the family of the job being viewed
+        string? jobFamilyKey = null;
+        foreach (var family in families)
+        {
+            if (family.Value.Any(f => jobTitleNorm.Contains(f)) || jobTitleNorm.Contains(family.Key.ToLowerInvariant()))
+            {
+                jobFamilyKey = family.Key;
+                break;
+            }
+        }
+
+        int highestRelevance = 0;
+
+        foreach (var role in candidateRolesNorm)
+        {
+            int currentRelevance = 0;
+
+            // 1. Precise Family Match (90-100)
+            if (jobFamilyKey != null && (families[jobFamilyKey].Any(f => role.Contains(f)) || role.Contains(jobFamilyKey.ToLowerInvariant())))
+            {
+                currentRelevance = 90;
+                if (role == jobTitleNorm) currentRelevance = 100;
+            }
+            // 2. Partial Keyword Overlap (40-70)
+            else
+            {
+                var jobWords = jobTitleNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var roleWords = role.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var commonWords = jobWords.Intersect(roleWords).Count();
+
+                if (commonWords > 0)
+                {
+                    // Basic keyword overlap logic
+                    currentRelevance = Math.Min(40 + (commonWords * 15), 75);
+                }
+            }
+
+            if (currentRelevance > highestRelevance)
+                highestRelevance = currentRelevance;
+        }
+
+        return highestRelevance;
+    }
+
+    private MatchScore CalculateInMemory(Candidate candidate, HashSet<string> candidateSkills, List<string> candidateRoles, JobDetail job)
     {
         var jobSkills = job.RequiredSkills;
         var candidateSkillsList = candidateSkills.ToList();
@@ -134,8 +203,12 @@ public class MatchScoreService : IMatchScoreService
             ? Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2)
             : 0m;
 
-        var expScore = job.MinExperienceYears == 0 ? 100m
+        // Relevant Experience Logic
+        var roleRelevance = CalculateRoleRelevance(job.Title, candidateRoles);
+        var expSufficiency = job.MinExperienceYears == 0 ? 100m
             : Math.Min(Math.Round((decimal)candidate.ExperienceYears / job.MinExperienceYears * 100, 2), 100m);
+        
+        var relevantExpScore = Math.Round((roleRelevance * expSufficiency) / 100m, 2);
 
         var locationScore = string.Equals(candidate.Location?.Trim(), job.Location?.Trim(), StringComparison.OrdinalIgnoreCase) ? 100m : 0m;
 
@@ -144,9 +217,9 @@ public class MatchScoreService : IMatchScoreService
             CandidateId = candidate.CandidateId,
             JobId = job.JobId,
             SkillScore = skillScore,
-            ExperienceScore = expScore,
+            ExperienceScore = relevantExpScore,
             LocationScore = locationScore,
-            TotalScore = Math.Round((skillScore * 0.6m) + (expScore * 0.3m) + (locationScore * 0.1m), 2),
+            TotalScore = Math.Round((skillScore * 0.6m) + (relevantExpScore * 0.3m) + (locationScore * 0.1m), 2),
             MissingSkills = JsonSerializer.Serialize(missing),
             CalculatedAt = DateTime.Now
         };
@@ -169,60 +242,6 @@ public class MatchScoreService : IMatchScoreService
         };
     }
 
-    private async Task<MatchScore?> CalculateWithDataAsync(Candidate candidate, HashSet<string> candidateSkills, int jobId)
-    {
-        var jobSkills = await _jobRepo.GetSkillNamesAsync(jobId);
-        if (!jobSkills.Any()) return null;
-
-        var jobSkillsNorm = jobSkills.Select(s => s.ToLowerInvariant()).ToList();
-        var matched = jobSkillsNorm.Where(s => candidateSkills.Contains(s)).ToList();
-        var missing = jobSkillsNorm.Except(matched).ToList();
-
-        var skillScore = jobSkillsNorm.Count > 0
-            ? Math.Round((decimal)matched.Count / jobSkillsNorm.Count * 100, 2)
-            : 0m;
-
-        var requiredExp = await _jobRepo.GetMinExperienceAsync(jobId);
-        var expScore = requiredExp == 0 ? 100m
-            : Math.Min(Math.Round((decimal)candidate.ExperienceYears / requiredExp * 100, 2), 100m);
-
-        var jobLocation = await _jobRepo.GetLocationAsync(jobId);
-        var locationScore = string.Equals(candidate.Location?.Trim(), jobLocation?.Trim(), StringComparison.OrdinalIgnoreCase) ? 100m : 0m;
-
-        return new MatchScore
-        {
-            CandidateId = candidate.CandidateId,
-            JobId = jobId,
-            SkillScore = skillScore,
-            ExperienceScore = expScore,
-            LocationScore = locationScore,
-            TotalScore = Math.Round((skillScore * 0.6m) + (expScore * 0.3m) + (locationScore * 0.1m), 2),
-            MissingSkills = JsonSerializer.Serialize(missing),
-            CalculatedAt = DateTime.Now
-        };
-    }
-
-    private async Task<MatchScoreResponse> BuildResponseWithDataAsync(MatchScore score, HashSet<string> candidateSkills, int jobId)
-    {
-        var allJobSkills = await _jobRepo.GetSkillNamesAsync(jobId);
-        var missing = JsonSerializer.Deserialize<List<string>>(score.MissingSkills) ?? new();
-        var jobTitle = await _jobRepo.GetTitleAsync(jobId) ?? string.Empty;
-
-        return new MatchScoreResponse
-        {
-            JobId = jobId,
-            JobTitle = jobTitle,
-            TotalScore = score.TotalScore,
-            SkillScore = score.SkillScore,
-            ExperienceScore = score.ExperienceScore,
-            LocationScore = score.LocationScore,
-            MatchedSkills = allJobSkills.Where(s => candidateSkills.Contains(s.ToLowerInvariant())).ToList(),
-            MissingSkills = missing
-        };
-    }
-
-    //  Core weighted algorithm 
-    // Score = (SkillMatch × 0.6) + (ExperienceMatch × 0.3) + (LocationMatch × 0.1)
     private async Task<MatchScore?> CalculateAsync(Candidate candidate, int jobId)
     {
         var jobSkills = await _jobRepo.GetSkillNamesAsync(jobId);
@@ -243,17 +262,24 @@ public class MatchScoreService : IMatchScoreService
 
         var missing = jobSkills.Select(s => s.ToLowerInvariant()).Except(matched).ToList();
 
-        // Skill score (0–100)
+        // 1. Skill score (60%)
         var skillScore = jobSkills.Count > 0
             ? Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2)
             : 0m;
 
-        // Experience score (0–100, capped)
+        // 2. Relevant Experience score (30%)
+        var jobTitle = await _jobRepo.GetTitleAsync(jobId) ?? "";
+        var experiences = await _candidateRepo.GetExperienceAsync(candidate.CandidateId);
+        var candidateRoles = experiences.Select(e => e.Role).ToList();
+
+        var roleRelevance = CalculateRoleRelevance(jobTitle, candidateRoles);
         var requiredExp = await _jobRepo.GetMinExperienceAsync(jobId);
-        var expScore = requiredExp == 0 ? 100m
+        var expSufficiency = requiredExp == 0 ? 100m
             : Math.Min(Math.Round((decimal)candidate.ExperienceYears / requiredExp * 100, 2), 100m);
 
-        // Location score (exact match = 100, else 0)
+        var relevantExpScore = Math.Round((roleRelevance * expSufficiency) / 100m, 2);
+
+        // 3. Location score (10%)
         var jobLocation = await _jobRepo.GetLocationAsync(jobId);
         var locationScore = string.Equals(
             candidate.Location?.Trim(),
@@ -262,14 +288,14 @@ public class MatchScoreService : IMatchScoreService
 
         // Weighted total
         var total = Math.Round(
-            (skillScore * 0.6m) + (expScore * 0.3m) + (locationScore * 0.1m), 2);
+            (skillScore * 0.6m) + (relevantExpScore * 0.3m) + (locationScore * 0.1m), 2);
 
         return new MatchScore
         {
             CandidateId = candidate.CandidateId,
             JobId = jobId,
             SkillScore = skillScore,
-            ExperienceScore = expScore,
+            ExperienceScore = relevantExpScore,
             LocationScore = locationScore,
             TotalScore = total,
             MissingSkills = JsonSerializer.Serialize(missing),
