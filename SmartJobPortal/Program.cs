@@ -13,6 +13,7 @@ using SmartJobPortal.Infrastructure.Services;
 using System.Text;
 using SmartJobPortal.API.Hubs;
 using SmartJobPortal.API.Services;
+using SmartJobPortal.Application;
 
 
 
@@ -115,6 +116,10 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
+// CQRS & Application Layer
+builder.Services.AddApplication();
+builder.Services.AddScoped<IJwtService, JwtService>();
+
 
 // JWT
 builder.Services.AddAuthentication("Bearer")
@@ -202,6 +207,9 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
 
 var app = builder.Build();
+
+// Global Exception Handling
+app.UseMiddleware<SmartJobPortal.API.Middleware.ExceptionHandlingMiddleware>();
 
 //  Run data seeder on startup 
 using (var scope = app.Services.CreateScope())

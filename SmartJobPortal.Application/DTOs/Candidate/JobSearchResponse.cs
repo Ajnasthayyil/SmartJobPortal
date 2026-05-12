@@ -27,7 +27,7 @@ public class JobListItem
 
 public class JobDetail : JobListItem
 {
-    public string Description { get; set; } = string.Empty;
+    public new string Description { get; set; } = string.Empty;
     public DateTime? ExpiresAt { get; set; }
     public new MatchScoreResponse? MatchScore { get; set; }
     public decimal? MatchScoreValue { get; set; }

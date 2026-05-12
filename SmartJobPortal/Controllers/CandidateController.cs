@@ -1,8 +1,18 @@
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.DTOs.Candidate;
-using SmartJobPortal.Application.Interfaces;
+using SmartJobPortal.Application.Features.Candidate.Commands.UpdateCandidateProfile;
+using SmartJobPortal.Application.Features.Candidate.Queries.GetCandidateProfile;
+using SmartJobPortal.Application.Features.Candidate.Queries.GetCompanies;
+using SmartJobPortal.Application.Features.Job.Queries.SearchJobs;
+using SmartJobPortal.Application.Features.MatchScore.Queries.GetBulkMatchScores;
+using SmartJobPortal.Application.Features.MatchScore.Queries.GetMatchScore;
+using SmartJobPortal.Application.Features.Resume.Commands.UploadResume;
+using SmartJobPortal.Application.Features.Job.Queries.GetJobDetail;
+using SmartJobPortal.Application.Features.Job.Commands.ApplyJob;
+using SmartJobPortal.Application.Features.Job.Queries.GetMyApplications;
 
 namespace SmartJobPortal.API.Controllers;
 
@@ -11,48 +21,30 @@ namespace SmartJobPortal.API.Controllers;
 [Authorize(Roles = "Candidate")]
 public class CandidateController : ControllerBase
 {
-    private readonly ICandidateService _candidateService;
-    private readonly IResumeService _resumeService;
-    private readonly IJobSearchService _jobSearchService;
-    private readonly IMatchScoreService _matchScoreService;
+    private readonly IMediator _mediator;
 
-    public CandidateController(
-        ICandidateService candidateService,
-        IResumeService resumeService,
-        IJobSearchService jobSearchService,
-        IMatchScoreService matchScoreService)
+    public CandidateController(IMediator mediator)
     {
-        _candidateService = candidateService;
-        _resumeService = resumeService;
-        _jobSearchService = jobSearchService;
-        _matchScoreService = matchScoreService;
+        _mediator = mediator;
     }
 
-    // Extract UserId from JWT "sub" claim
     private int UserId =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? throw new UnauthorizedAccessException("User ID not found in token."));
 
-    //  Profile 
-
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile()
     {
-        var result = await _candidateService.GetProfileAsync(UserId);
+        var result = await _mediator.Send(new GetCandidateProfileQuery(UserId));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpPut("profile")]
     public async Task<IActionResult> UpsertProfile([FromBody] CandidateProfileRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        var result = await _candidateService.UpsertProfileAsync(UserId, request);
+        var result = await _mediator.Send(new UpdateCandidateProfileCommand(UserId, request));
         return StatusCode(result.StatusCode, result);
     }
-
-    //  Resume 
 
     [HttpPost("resume")]
     [RequestSizeLimit(5_242_880)] // 5 MB
@@ -61,66 +53,59 @@ public class CandidateController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(new { success = false, message = "No file provided." });
 
-        var result = await _resumeService.UploadAndParseAsync(UserId, file);
+        var result = await _mediator.Send(new UploadResumeCommand(UserId, file));
         return StatusCode(result.StatusCode, result);
     }
-
-    //  Job Search 
 
     [HttpGet("jobs")]
     [AllowAnonymous]
     public async Task<IActionResult> SearchJobs([FromQuery] JobSearchRequest request)
     {
         var userId = User.Identity?.IsAuthenticated == true ? UserId : 0;
-        var result = await _jobSearchService.SearchAsync(userId, request);
+        var result = await _mediator.Send(new SearchJobsQuery(userId, request));
         return StatusCode(result.StatusCode, result);
     }
 
-    ///Get single job detail with match score and skill gap
     [HttpGet("jobs/{jobId:int}")]
     public async Task<IActionResult> GetJobDetail(int jobId)
     {
-        var result = await _jobSearchService.GetDetailAsync(UserId, jobId);
+        // For now, using direct service for unimplemented handlers or I can quickly implement it
+        // Since I haven't implemented GetJobDetailQuery yet, I'll assume it's coming
+        // return StatusCode(501, "Not implemented in CQRS yet.");
+        // Actually, I'll just use the old service for a moment if needed, but the goal is to replace.
+        // Let's implement GetJobDetailQuery quickly.
+        var result = await _mediator.Send(new GetJobDetailQuery(UserId, jobId));
         return StatusCode(result.StatusCode, result);
     }
-
-    //  Applications 
 
     [HttpPost("jobs/apply")]
     public async Task<IActionResult> Apply([FromBody] ApplyJobRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        var result = await _jobSearchService.ApplyAsync(UserId, request);
+        var result = await _mediator.Send(new ApplyJobCommand(UserId, request));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpGet("applications")]
     public async Task<IActionResult> GetMyApplications()
     {
-        var result = await _jobSearchService.GetMyApplicationsAsync(UserId);
+        var result = await _mediator.Send(new GetMyApplicationsQuery(UserId));
         return StatusCode(result.StatusCode, result);
     }
 
-    //  Match Score / Skill Gap 
-
-    // Get match score + skill gap for a specific job
     [HttpGet("jobs/{jobId:int}/match-score")]
     public async Task<IActionResult> GetMatchScore(int jobId)
     {
-        var result = await _matchScoreService.GetOrCalculateAsync(UserId, jobId);
+        var result = await _mediator.Send(new GetMatchScoreQuery(UserId, jobId));
         return StatusCode(result.StatusCode, result);
     }
 
-    // Bulk match scores for up to 50 jobs
     [HttpPost("match-scores/bulk")]
     public async Task<IActionResult> GetBulkMatchScores([FromBody] List<int> jobIds)
     {
         if (jobIds.Count > 50)
             return BadRequest(new { success = false, message = "Max 50 job IDs per request." });
 
-        var result = await _matchScoreService.GetBulkAsync(UserId, jobIds);
+        var result = await _mediator.Send(new GetBulkMatchScoresQuery(UserId, jobIds));
         return StatusCode(result.StatusCode, result);
     }
 
@@ -128,7 +113,7 @@ public class CandidateController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetCompanies()
     {
-        var result = await _candidateService.GetCompaniesAsync();
+        var result = await _mediator.Send(new GetCompaniesQuery());
         return StatusCode(result.StatusCode, result);
     }
-}
+}

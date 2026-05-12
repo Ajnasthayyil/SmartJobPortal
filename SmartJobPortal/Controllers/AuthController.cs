@@ -1,17 +1,23 @@
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.DTOs.Auth;
-using SmartJobPortal.Application.Interfaces;
+using SmartJobPortal.Application.Features.Auth.Commands.GoogleLogin;
+using SmartJobPortal.Application.Features.Auth.Commands.Login;
+using SmartJobPortal.Application.Features.Auth.Commands.RefreshToken;
+using SmartJobPortal.Application.Features.Auth.Commands.Register;
+
+namespace SmartJobPortal.API.Controllers;
 
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly IAuthService _service;
+    private readonly IMediator _mediator;
 
-    public AuthController(IAuthService service)
+    public AuthController(IMediator mediator)
     {
-        _service = service;
+        _mediator = mediator;
     }
 
     //  COOKIE METHOD (ONLY ONE)
@@ -43,7 +49,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-        var result = await _service.RegisterAsync(request);
+        var result = await _mediator.Send(new RegisterCommand(request));
 
         if (!result.Success)
             return BadRequest(result);
@@ -55,7 +61,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
     {
-        var result = await _service.LoginAsync(request);
+        var result = await _mediator.Send(new LoginCommand(request));
 
         if (!result.Success || result.Data == null)
             return Unauthorized(result);
@@ -69,7 +75,7 @@ public class AuthController : ControllerBase
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin(GoogleLoginRequest request)
     {
-        var result = await _service.GoogleLoginAsync(request);
+        var result = await _mediator.Send(new GoogleLoginCommand(request));
 
         if (!result.Success || result.Data == null)
             return Unauthorized(result);
@@ -92,7 +98,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { success = false, message = "Login required." });
         }
 
-        var result = await _service.RefreshTokenAsync(refreshToken);
+        var result = await _mediator.Send(new RefreshTokenCommand(refreshToken));
 
         if (!result.Success || result.Data == null)
         {
@@ -116,4 +122,4 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Logged out successfully" });
     }
-}
+}

@@ -1,8 +1,13 @@
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Application.DTOs.NotificationDTOs;
+using SmartJobPortal.Application.Features.Notification.Commands.CreateNotification;
+using SmartJobPortal.Application.Features.Notification.Commands.MarkAllAsRead;
+using SmartJobPortal.Application.Features.Notification.Commands.MarkAsRead;
+using SmartJobPortal.Application.Features.Notification.Queries.GetUnreadCount;
+using SmartJobPortal.Application.Features.Notification.Queries.GetUserNotifications;
 
 namespace SmartJobPortal.API.Controllers;
 
@@ -11,10 +16,10 @@ namespace SmartJobPortal.API.Controllers;
 [Authorize]
 public class NotificationController : ControllerBase
 {
-    private readonly INotificationService _service;
+    private readonly IMediator _mediator;
 
-    public NotificationController(INotificationService service)
-        => _service = service;
+    public NotificationController(IMediator mediator)
+        => _mediator = mediator;
 
     private int UserId =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -22,28 +27,28 @@ public class NotificationController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _service.GetUserNotificationsAsync(UserId);
+        var result = await _mediator.Send(new GetUserNotificationsQuery(UserId));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpGet("unread-count")]
     public async Task<IActionResult> GetUnreadCount()
     {
-        var result = await _service.GetUnreadCountAsync(UserId);
+        var result = await _mediator.Send(new GetUnreadCountQuery(UserId));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpPut("{notificationId:int}/read")]
     public async Task<IActionResult> MarkAsRead(int notificationId)
     {
-        var result = await _service.MarkAsReadAsync(UserId, notificationId);
+        var result = await _mediator.Send(new MarkAsReadCommand(UserId, notificationId));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpPut("read-all")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        var result = await _service.MarkAllAsReadAsync(UserId);
+        var result = await _mediator.Send(new MarkAllAsReadCommand(UserId));
         return StatusCode(result.StatusCode, result);
     }
 
@@ -51,7 +56,11 @@ public class NotificationController : ControllerBase
     [Authorize(Roles = "Admin,Recruiter")]
     public async Task<IActionResult> SendNotification([FromBody] SendNotificationRequest request)
     {
-        var result = await _service.CreateAsync(request.TargetUserId, request.Title, request.Message, "Alert");
+        var result = await _mediator.Send(new CreateNotificationCommand(
+            request.TargetUserId, 
+            request.Title, 
+            request.Message, 
+            "Alert"));
         return StatusCode(result.StatusCode, result);
     }
 }
