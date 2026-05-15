@@ -19,6 +19,9 @@ public class CandidateProfileRequest
     public int ExperienceYears { get; set; }
 
     public string PhoneNumber { get; set; } = string.Empty;
+    public string? LinkedInUrl { get; set; }
+    public string? GitHubUrl { get; set; }
+    public string? LeetCodeUrl { get; set; }
 
     public List<SkillRequest> Skills { get; set; } = new();
 

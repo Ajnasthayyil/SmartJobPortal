@@ -2,7 +2,7 @@ using MediatR;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.Features.Notification.Commands.CreateNotification;
 using SmartJobPortal.Application.Interfaces;
-using SmartJobPortal.Application.Services;
+using SmartJobPortal.Application.Common.Utilities;
 
 namespace SmartJobPortal.Application.Features.Admin.Commands.ApproveRecruiter;
 

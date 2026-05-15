@@ -6,7 +6,6 @@ using Newtonsoft.Json.Serialization;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.Common.Utilities;
 using SmartJobPortal.Application.Interfaces;
-using SmartJobPortal.Application.Services;
 using SmartJobPortal.Infrastructure.Data;
 using SmartJobPortal.Infrastructure.Repositories;
 using SmartJobPortal.Infrastructure.Services;
@@ -86,39 +85,32 @@ builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IMatchScoreRepository, MatchScoreRepository>();
 
 //  DI
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IDbConnectionFactory>(sp =>
     new DbConnectionFactory(builder.Configuration));
-builder.Services.AddScoped<ICandidateService, CandidateService>();
-builder.Services.AddScoped<IResumeService, ResumeService>();
-
-builder.Services.AddScoped<IJobSearchService, JobSearchService>();
-builder.Services.AddScoped<IMatchScoreService, MatchScoreService>();
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddSingleton<ISemanticMatcher, SemanticMatcher>();
 
-builder.Services.AddHttpClient<IGeminiService, GeminiFormatterService>();
-builder.Services.AddScoped<IGeminiService, GeminiFormatterService>();
+builder.Services.AddHttpClient<IHuggingFaceService, HuggingFaceParserService>(); 
 
 //  Recruiter module 
 builder.Services.AddScoped<IRecruiterRepository, RecruiterRepository>();
 builder.Services.AddScoped<IRecruiterJobRepository, RecruiterJobRepository>();
-builder.Services.AddScoped<IRecruiterService, RecruiterService>();
+
 //  Admin module 
 builder.Services.AddScoped<IAdminRepository, AdminRepository>();
-builder.Services.AddScoped<IAdminService, AdminService>();
+
 // Register DataSeeder
 builder.Services.AddScoped<DataSeeder>();
 
 // ── Notification module ───────────────────────────────────────
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationService, SmartJobPortal.Infrastructure.Services.NotificationService>();
 
 // CQRS & Application Layer
 builder.Services.AddApplication();
-builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IJwtService, SmartJobPortal.Infrastructure.Services.JwtService>();
 
 
 // JWT

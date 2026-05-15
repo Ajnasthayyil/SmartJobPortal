@@ -7,6 +7,9 @@ public class ResumeDto
     public string? Phone { get; set; }
     public List<string> Skills { get; set; } = new();
     public double TotalExperience { get; set; }
+    public string? LinkedIn { get; set; }
+    public string? GitHub { get; set; }
+    public string? LeetCode { get; set; }
     public List<EducationDto> Education { get; set; } = new();
     public List<ExperienceDto> WorkExperience { get; set; } = new();
 }

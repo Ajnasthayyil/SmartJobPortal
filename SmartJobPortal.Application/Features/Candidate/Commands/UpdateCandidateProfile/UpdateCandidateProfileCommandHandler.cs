@@ -40,6 +40,9 @@ public class UpdateCandidateProfileCommandHandler : IRequestHandler<UpdateCandid
             candidate.Summary = profileRequest.Summary;
             candidate.Location = profileRequest.Location;
             candidate.ExperienceYears = profileRequest.ExperienceYears;
+            candidate.LinkedInUrl = profileRequest.LinkedInUrl;
+            candidate.GitHubUrl = profileRequest.GitHubUrl;
+            candidate.LeetCodeUrl = profileRequest.LeetCodeUrl;
             candidate.UpdatedAt = DateTime.Now;
 
             // Update Phone Number if provided
@@ -135,6 +138,9 @@ public class UpdateCandidateProfileCommandHandler : IRequestHandler<UpdateCandid
             HasResume = c.HasResume(),
             ResumeOriginalName = c.ResumeOriginalName,
             ResumeUploadedAt = c.ResumeUploadedAt,
+            LinkedInUrl = c.LinkedInUrl,
+            GitHubUrl = c.GitHubUrl,
+            LeetCodeUrl = c.LeetCodeUrl,
             Skills = skills.Select(s => new SkillResponse
             {
                 SkillId = s.SkillId,

@@ -72,6 +72,9 @@ public class GetCandidateProfileQueryHandler : IRequestHandler<GetCandidateProfi
             HasResume = c.HasResume(),
             ResumeOriginalName = c.ResumeOriginalName,
             ResumeUploadedAt = c.ResumeUploadedAt,
+            LinkedInUrl = c.LinkedInUrl,
+            GitHubUrl = c.GitHubUrl,
+            LeetCodeUrl = c.LeetCodeUrl,
             Skills = skills.Select(s => new SkillResponse
             {
                 SkillId = s.SkillId,

@@ -1,6 +1,8 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using SmartJobPortal.Application.Interfaces;
-using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.DTOs.Candidate;
+using SmartJobPortal.Application.Features.Job.Queries.GetJobDetail;
+using SmartJobPortal.Application.Features.Job.Queries.SearchJobs;
 using System.Security.Claims;
 
 namespace SmartJobPortal.API.Controllers;
@@ -9,11 +11,11 @@ namespace SmartJobPortal.API.Controllers;
 [Route("api/[controller]")]
 public class JobsController : ControllerBase
 {
-    private readonly IJobSearchService _jobSearchService;
+    private readonly IMediator _mediator;
 
-    public JobsController(IJobSearchService jobSearchService)
+    public JobsController(IMediator mediator)
     {
-        _jobSearchService = jobSearchService;
+        _mediator = mediator;
     }
 
     private int? UserId =>
@@ -22,14 +24,14 @@ public class JobsController : ControllerBase
     [HttpGet("{jobId:int}")]
     public async Task<IActionResult> GetJobDetail(int jobId)
     {
-        var result = await _jobSearchService.GetDetailAsync(UserId ?? 0, jobId);
+        var result = await _mediator.Send(new GetJobDetailQuery(UserId ?? 0, jobId));
         return StatusCode(result.StatusCode, result);
     }
 
     [HttpGet]
-    public async Task<IActionResult> SearchJobs([FromQuery] SmartJobPortal.Application.DTOs.Candidate.JobSearchRequest request)
+    public async Task<IActionResult> SearchJobs([FromQuery] JobSearchRequest request)
     {
-        var result = await _jobSearchService.SearchAsync(UserId ?? 0, request);
+        var result = await _mediator.Send(new SearchJobsQuery(UserId ?? 0, request));
         return StatusCode(result.StatusCode, result);
     }
 }

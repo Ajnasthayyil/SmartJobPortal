@@ -33,15 +33,20 @@ public class CandidateRepository : ICandidateRepository
                     Summary            = @Summary,
                     Location           = @Location,
                     ExperienceYears    = @ExperienceYears,
+                    LinkedInUrl        = @LinkedInUrl,
+                    GitHubUrl          = @GitHubUrl,
+                    LeetCodeUrl        = @LeetCodeUrl,
                     UpdatedAt          = @UpdatedAt,
                     ResumeFilePath     = COALESCE(@ResumeFilePath,     ResumeFilePath),
                     ResumeOriginalName = COALESCE(@ResumeOriginalName, ResumeOriginalName),
                     ResumeUploadedAt   = COALESCE(@ResumeUploadedAt,   ResumeUploadedAt)
             WHEN NOT MATCHED THEN
                 INSERT (UserId, Headline, Summary, Location, ExperienceYears,
+                        LinkedInUrl, GitHubUrl, LeetCodeUrl,
                         ResumeFilePath, ResumeOriginalName, ResumeUploadedAt,
                         CreatedAt, UpdatedAt)
                 VALUES (@UserId, @Headline, @Summary, @Location, @ExperienceYears,
+                        @LinkedInUrl, @GitHubUrl, @LeetCodeUrl,
                         @ResumeFilePath, @ResumeOriginalName, @ResumeUploadedAt,
                         @CreatedAt, @UpdatedAt)
             OUTPUT INSERTED.CandidateId;

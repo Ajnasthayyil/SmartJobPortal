@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Candidate;
 using SmartJobPortal.Application.Interfaces;
-using SmartJobPortal.Application.Services.ResumeLogic;
+using SmartJobPortal.Application.Features.Resume.Common;
 using SmartJobPortal.Domain.Entities;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,7 +19,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
     private readonly IUserRepository _userRepo;
     private readonly ICacheService _cache;
     private readonly IConfiguration _config;
-    private readonly IGeminiService _gemini;
+    private readonly IHuggingFaceService _huggingFace;
     private readonly ResumeFileValidator _validator;
     private readonly ResumeSkillExtractor _extractor;
 
@@ -28,13 +28,13 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         IUserRepository userRepo,
         ICacheService cache,
         IConfiguration config,
-        IGeminiService gemini)
+        IHuggingFaceService huggingFace)
     {
         _candidateRepo = candidateRepo;
         _userRepo = userRepo;
         _cache = cache;
         _config = config;
-        _gemini = gemini;
+        _huggingFace = huggingFace;
         _validator = new ResumeFileValidator();
         _extractor = new ResumeSkillExtractor();
     }
@@ -79,7 +79,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
                 "This document does not appear to be a resume.");
         }
 
-        var aiData = await _gemini.ExtractStructuredDataAsync(sanitisedText);
+        var aiData = await _huggingFace.ExtractStructuredDataAsync(sanitisedText);
 
         // ── Save file ────────────────────────────────────────────
         var storagePath = _config["ResumeStorage:Path"] ?? "uploads/resumes";
@@ -103,6 +103,14 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         candidate.ResumeFilePath = filePath;
         candidate.ResumeOriginalName = SanitiseFileName(file.FileName);
         candidate.ResumeUploadedAt = DateTime.Now;
+        
+        // Social Links from AI
+        if (aiData != null)
+        {
+            candidate.LinkedInUrl = aiData.LinkedIn;
+            candidate.GitHubUrl = aiData.GitHub;
+            candidate.LeetCodeUrl = aiData.LeetCode;
+        }
 
         if (aiData != null && user != null)
         {
@@ -143,14 +151,17 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
 
         return ApiResponse<ResumeParseResponse>.Ok(new ResumeParseResponse
             {
-                Message = "Resume processed with AI enhancement.",
+                Message = "Resume processed with Hugging Face AI.",
                 ParsedData = new ResumeDto
                 {
-                    FullName = user?.FullName ?? candidate.ResumeOriginalName,
-                    Email = user?.Email ?? aiData?.Email ?? extraction.Email,
-                    Phone = user?.PhoneNumber ?? aiData?.Phone,
+                    FullName = aiData?.FullName ?? user?.FullName ?? candidate.ResumeOriginalName,
+                    Email = aiData?.Email ?? user?.Email ?? extraction.Email,
+                    Phone = aiData?.Phone ?? user?.PhoneNumber,
                     Skills = allSkills.ToList(),
                     TotalExperience = finalExp,
+                    LinkedIn = aiData?.LinkedIn ?? candidate.LinkedInUrl,
+                    GitHub = aiData?.GitHub ?? candidate.GitHubUrl,
+                    LeetCode = aiData?.LeetCode ?? candidate.LeetCodeUrl,
                     Education = aiData?.Education ?? new(),
                     WorkExperience = aiData?.WorkExperience ?? new()
                 }

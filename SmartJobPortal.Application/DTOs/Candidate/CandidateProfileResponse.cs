@@ -14,6 +14,9 @@ public class CandidateProfileResponse
     public bool HasResume { get; set; }
     public string? ResumeOriginalName { get; set; }
     public DateTime? ResumeUploadedAt { get; set; }
+    public string? LinkedInUrl { get; set; }
+    public string? GitHubUrl { get; set; }
+    public string? LeetCodeUrl { get; set; }
     public List<SkillResponse> Skills { get; set; } = new();
     public List<EducationResponse> Education { get; set; } = new();
     public List<ExperienceResponse> WorkExperience { get; set; } = new();

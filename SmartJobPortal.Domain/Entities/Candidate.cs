@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Domain.Entities;
+namespace SmartJobPortal.Domain.Entities;
 
 public class Candidate
 {
@@ -10,6 +10,9 @@ public class Candidate
     public int ExperienceYears { get; set; }
     public string? ResumeFilePath { get; set; }
     public string? ResumeOriginalName { get; set; }
+    public string? LinkedInUrl { get; set; }
+    public string? GitHubUrl { get; set; }
+    public string? LeetCodeUrl { get; set; }
     public DateTime? ResumeUploadedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
