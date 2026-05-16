@@ -13,7 +13,8 @@ using System.Text;
 using SmartJobPortal.API.Hubs;
 using SmartJobPortal.API.Services;
 using SmartJobPortal.Application;
-
+using SmartJobPortal.Application.Interfaces;
+using SmartJobPortal.Infrastructure.Repositories;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -111,8 +112,7 @@ builder.Services.AddScoped<INotificationService, SmartJobPortal.Infrastructure.S
 // CQRS & Application Layer
 builder.Services.AddApplication();
 builder.Services.AddScoped<IJwtService, SmartJobPortal.Infrastructure.Services.JwtService>();
-
-
+builder.Services.AddScoped<IPostRepository, PostRepository>();
 // JWT
 builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer("Bearer", options =>
