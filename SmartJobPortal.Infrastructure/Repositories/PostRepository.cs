@@ -91,7 +91,7 @@ public class PostRepository : IPostRepository
     List<PostMedia> media)
     {
         using var connection =
-            _context.CreateConnection();
+            _factory.CreateConnection();
 
         var sql = """
         INSERT INTO PostMedia
