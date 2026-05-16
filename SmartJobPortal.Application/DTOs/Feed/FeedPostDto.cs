@@ -14,6 +14,8 @@ public class FeedPostDto
 
     public string? ImageUrl { get; set; }
 
+    public List<string> Images { get; set; } = new();
+
     public int LikesCount { get; set; }
 
     public int CommentsCount { get; set; }

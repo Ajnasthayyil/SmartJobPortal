@@ -86,4 +86,34 @@ public class PostRepository : IPostRepository
 
         return posts.ToList();
     }
+
+    public async Task AddMediaAsync(
+    List<PostMedia> media)
+    {
+        using var connection =
+            _context.CreateConnection();
+
+        var sql = """
+        INSERT INTO PostMedia
+        (
+            PostId,
+            MediaUrl,
+            PublicId,
+            MediaType,
+            DisplayOrder
+        )
+        VALUES
+        (
+            @PostId,
+            @MediaUrl,
+            @PublicId,
+            'Image',
+            @DisplayOrder
+        )
+        """;
+
+        await connection.ExecuteAsync(
+            sql,
+            media);
+    }
 }

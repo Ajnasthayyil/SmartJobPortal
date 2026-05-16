@@ -10,4 +10,7 @@ public interface IPostRepository
     Task<List<FeedPostDto>> GetFeedAsync(
         int page,
         int pageSize);
+
+    Task AddMediaAsync(
+    List<PostMedia> media);
 }

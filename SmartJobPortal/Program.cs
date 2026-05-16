@@ -113,6 +113,7 @@ builder.Services.AddScoped<INotificationService, SmartJobPortal.Infrastructure.S
 builder.Services.AddApplication();
 builder.Services.AddScoped<IJwtService, SmartJobPortal.Infrastructure.Services.JwtService>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 // JWT
 builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer("Bearer", options =>
