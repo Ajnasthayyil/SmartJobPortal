@@ -47,7 +47,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         // ── Layer 1: File validation ─────────────────────────────
         var (isValid, validationError) = _validator.Validate(file);
         if (!isValid)
-            return ApiResponse<ResumeParseResponse>.Fail(validationError);
+            return ApiResponse<ResumeParseResponse>.Fail(validationError ?? "Validation failed.");
 
         // ── Layer 2: Extract raw text ────────────────────────────
         string rawText;
@@ -55,7 +55,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         {
             rawText = await ExtractTextAsync(file);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return ApiResponse<ResumeParseResponse>.Fail(
                 "Could not read the file. Ensure it is a valid PDF or DOCX.");
@@ -180,7 +180,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
             return sb.ToString();
         }
         using var wordDoc = WordprocessingDocument.Open(stream, false);
-        return wordDoc.MainDocumentPart?.Document.Body?.InnerText ?? string.Empty;
+        return wordDoc.MainDocumentPart?.Document?.Body?.InnerText ?? string.Empty;
     }
 
     private async Task MergeSkillsAsync(int candidateId, List<string> skills)
@@ -204,9 +204,9 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
             .Select(e => new CandidateEducation
         {
             CandidateId = candidateId,
-            Degree = e.Degree,
-            Institution = e.Institution,
-            GraduationYear = e.Year
+            Degree = e.Degree ?? string.Empty,
+            Institution = e.Institution ?? string.Empty,
+            GraduationYear = e.Year ?? string.Empty
         }).ToList();
         if (toAdd.Any()) await _candidateRepo.AddEducationAsync(toAdd);
     }
@@ -222,10 +222,10 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
             .Select(e => new CandidateExperience
         {
             CandidateId = candidateId,
-            Company = e.Company,
-            Role = e.Role,
-            Duration = e.Duration,
-            Description = e.Description
+            Company = e.Company ?? string.Empty,
+            Role = e.Role ?? string.Empty,
+            Duration = e.Duration ?? string.Empty,
+            Description = e.Description ?? string.Empty
         }).ToList();
         if (toAdd.Any()) await _candidateRepo.AddExperienceAsync(toAdd);
     }

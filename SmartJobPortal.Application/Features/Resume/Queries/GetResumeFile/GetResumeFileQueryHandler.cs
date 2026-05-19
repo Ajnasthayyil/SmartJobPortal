@@ -21,6 +21,6 @@ public class GetResumeFileQueryHandler : IRequestHandler<GetResumeFileQuery, (by
         var bytes = await File.ReadAllBytesAsync(candidate.ResumeFilePath);
         var ext = Path.GetExtension(candidate.ResumeFilePath).ToLowerInvariant();
         var contentType = ext == ".pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        return (bytes, contentType, candidate.ResumeOriginalName);
+        return (bytes, contentType, candidate.ResumeOriginalName ?? "resume");
     }
 }

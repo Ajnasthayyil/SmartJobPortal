@@ -28,6 +28,9 @@ public class UpdateAdminProfileCommandHandler : IRequestHandler<UpdateAdminProfi
         await _cache.RemoveAsync($"user:email:{user.Email}");
 
         var updatedUser = await _userRepo.GetByIdAsync(command.UserId);
+        if (updatedUser == null)
+            return ApiResponse<AdminProfileResponse>.NotFound("Admin not found.");
+
         return ApiResponse<AdminProfileResponse>.Ok(new AdminProfileResponse
         {
             UserId = updatedUser.UserId,

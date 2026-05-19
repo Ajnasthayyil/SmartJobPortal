@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.Features.Feed.Commands.CreatePost;
+using SmartJobPortal.Application.Features.Feed.Commands.ReactPost;
 using SmartJobPortal.Application.Features.Feed.Queries.GetFeed;
 using System.Security.Claims;
 
@@ -44,6 +45,23 @@ public class FeedController : ControllerBase
         };
 
         var result = await _mediator.Send(query);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("{postId}/react")]
+    public async Task<IActionResult> React(
+    int postId,
+    ReactPostCommand command)
+    {
+        command.PostId = postId;
+
+        command.UserId =
+            int.Parse(User.FindFirst("uid")!.Value);
+
+        var result =
+            await _mediator.Send(command);
 
         return Ok(result);
     }

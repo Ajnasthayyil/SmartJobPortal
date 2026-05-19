@@ -1,5 +1,7 @@
 using Dapper;
+using iText.StyledXmlParser.Jsoup.Select;
 using SmartJobPortal.Application.DTOs.Feed;
+using SmartJobPortal.Application.Features.Feed.DTOs;
 using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Domain.Entities;
 using SmartJobPortal.Infrastructure.Data;
@@ -115,5 +117,90 @@ public class PostRepository : IPostRepository
         await connection.ExecuteAsync(
             sql,
             media);
+    }
+
+    public async Task ReactToPostAsync(
+    int postId,
+    int userId,
+    string reactionType)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var existing =
+            await connection.QueryFirstOrDefaultAsync<int?>(
+            """
+        SELECT PostReactionId
+        FROM PostReactions
+        WHERE PostId = @PostId
+        AND UserId = @UserId
+        """,
+            new
+            {
+                PostId = postId,
+                UserId = userId
+            });
+
+        if (existing.HasValue)
+        {
+            await connection.ExecuteAsync(
+            """
+        UPDATE PostReactions
+        SET ReactionType = @ReactionType
+        WHERE PostReactionId = @Id
+        """,
+            new
+            {
+                Id = existing.Value,
+                ReactionType = reactionType
+            });
+
+            return;
+        }
+
+        await connection.ExecuteAsync(
+        """
+    INSERT INTO PostReactions
+    (
+        PostId,
+        UserId,
+        ReactionType,
+        CreatedAt
+    )
+    VALUES
+    (
+        @PostId,
+        @UserId,
+        @ReactionType,
+        GETUTCDATE()
+    )
+    """,
+        new
+        {
+            PostId = postId,
+            UserId = userId,
+            ReactionType = reactionType
+        });
+    }
+
+    public async Task<List<PostReactionDto>>
+    GetReactionsAsync(int postId)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var reactions =
+            await connection.QueryAsync<PostReactionDto>(
+            """
+        SELECT
+            ReactionType,
+            COUNT(*) AS Count
+        FROM PostReactions
+        WHERE PostId = @PostId
+        GROUP BY ReactionType
+        """,
+            new { PostId = postId });
+
+        return reactions.ToList();
     }
 }

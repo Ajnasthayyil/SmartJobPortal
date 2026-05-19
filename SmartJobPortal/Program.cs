@@ -13,8 +13,7 @@ using System.Text;
 using SmartJobPortal.API.Hubs;
 using SmartJobPortal.API.Services;
 using SmartJobPortal.Application;
-using SmartJobPortal.Application.Interfaces;
-using SmartJobPortal.Infrastructure.Repositories;
+using SmartJobPortal.Infrastructure;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -78,42 +77,16 @@ builder.Services.AddSwaggerGen(options =>
 
 // Get connection string
 var connectionString = builder.Configuration.GetConnectionString("Default");
-//repositeries
+// ── Core Modules (Clean Architecture) ──────────────────────────
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
-builder.Services.AddScoped<IJobRepository, JobRepository>();
-builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
-builder.Services.AddScoped<IMatchScoreRepository, MatchScoreRepository>();
-
-//  DI
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IDbConnectionFactory>(sp =>
-    new DbConnectionFactory(builder.Configuration));
-builder.Services.AddScoped<IPhotoService, PhotoService>();
-builder.Services.AddSingleton<ISemanticMatcher, SemanticMatcher>();
-
-builder.Services.AddHttpClient<IHuggingFaceService, HuggingFaceParserService>(); 
-
-//  Recruiter module 
-builder.Services.AddScoped<IRecruiterRepository, RecruiterRepository>();
-builder.Services.AddScoped<IRecruiterJobRepository, RecruiterJobRepository>();
-
-//  Admin module 
-builder.Services.AddScoped<IAdminRepository, AdminRepository>();
-
-// Register DataSeeder
+// ── API Services ───────────────────────────────────────────────
+builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<DataSeeder>();
 
-// ── Notification module ───────────────────────────────────────
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
-builder.Services.AddScoped<INotificationService, SmartJobPortal.Infrastructure.Services.NotificationService>();
 
-// CQRS & Application Layer
-builder.Services.AddApplication();
-builder.Services.AddScoped<IJwtService, SmartJobPortal.Infrastructure.Services.JwtService>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
-builder.Services.AddScoped<ICloudinaryService, SmartJobPortal.Infrastructure.Services.CloudinaryService>();
+
 // JWT
 builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer("Bearer", options =>
@@ -178,8 +151,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.InvalidModelStateResponseFactory = context =>
     {
         var errors = context.ModelState
-            .Where(e => e.Value.Errors.Count > 0)
-            .SelectMany(x => x.Value.Errors)
+            .Where(e => e.Value != null && e.Value.Errors.Count > 0)
+            .SelectMany(x => x.Value!.Errors)
             .Select(x => x.ErrorMessage)
             .ToList();
 

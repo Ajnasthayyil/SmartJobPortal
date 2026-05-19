@@ -1,3 +1,5 @@
+using SmartJobPortal.Application.Features.Feed.DTOs;
+
 namespace SmartJobPortal.Application.DTOs.Feed;
 
 public class FeedPostDto
@@ -21,4 +23,10 @@ public class FeedPostDto
     public int CommentsCount { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public List<PostReactionDto> Reactions { get; set; } = new();
+
+    public string? CurrentUserReaction { get; set; }
+
+    public int TotalReactions { get; set; }
 }

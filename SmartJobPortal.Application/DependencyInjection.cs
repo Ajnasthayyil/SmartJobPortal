@@ -22,6 +22,9 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly);
 
+        // Common Utilities
+        services.AddSingleton<Common.Utilities.ISemanticMatcher, Common.Utilities.SemanticMatcher>();
+
         return services;
     }
 }
