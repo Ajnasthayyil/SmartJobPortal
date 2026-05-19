@@ -10,7 +10,8 @@ public interface IPostRepository
 
     Task<List<FeedPostDto>> GetFeedAsync(
         int page,
-        int pageSize);
+        int pageSize,
+        int? currentUserId = null);
 
     Task AddMediaAsync(
     List<PostMedia> media);
@@ -26,6 +27,9 @@ public interface IPostRepository
     Task<int> CreateCommentAsync(
     PostComment comment);
 
-    Task<List<CommentDto>>
-        GetCommentsAsync(int postId);
+    Task<List<CommentDto>> GetCommentsAsync(
+        int postId);
+
+    Task<List<ReactionDto>> GetPostReactionsAsync(
+        int postId);
 }

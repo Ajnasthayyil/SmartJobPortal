@@ -35,15 +35,20 @@ public class FeedController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetFeed(
         int page = 1,
         int pageSize = 10)
     {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int? userId = string.IsNullOrEmpty(userIdClaim) ? null : int.Parse(userIdClaim);
+
         var query = new GetFeedQuery
         {
             Page = page,
-            PageSize = pageSize
+            PageSize = pageSize,
+            CurrentUserId = userId
         };
 
         var result = await _mediator.Send(query);
@@ -77,8 +82,9 @@ public class FeedController : ControllerBase
     {
         command.PostId = postId;
 
-        command.UserId =
-            int.Parse(User.FindFirst("uid")!.Value);
+        command.UserId = int.Parse(
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier)!);
 
         var result =
             await _mediator.Send(command);
@@ -97,6 +103,13 @@ public class FeedController : ControllerBase
                     PostId = postId
                 });
 
+        return Ok(result);
+    }
+
+    [HttpGet("{postId}/reactions")]
+    public async Task<IActionResult> GetReactions(int postId)
+    {
+        var result = await _mediator.Send(new SmartJobPortal.Application.Features.Feed.Queries.GetPostReactions.GetPostReactionsQuery { PostId = postId });
         return Ok(result);
     }
 }

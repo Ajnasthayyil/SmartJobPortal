@@ -23,7 +23,8 @@ public class GetFeedQueryHandler
     {
         var posts = await _repo.GetFeedAsync(
             request.Page,
-            request.PageSize);
+            request.PageSize,
+            request.CurrentUserId);
 
         return ApiResponse<List<FeedPostDto>>
             .SuccessResponse(posts);

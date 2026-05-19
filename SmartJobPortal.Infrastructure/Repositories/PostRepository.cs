@@ -52,7 +52,8 @@ public class PostRepository : IPostRepository
 
     public async Task<List<FeedPostDto>> GetFeedAsync(
         int page,
-        int pageSize)
+        int pageSize,
+        int? currentUserId = null)
     {
         using var connection =
             _factory.CreateConnection();
@@ -69,7 +70,8 @@ public class PostRepository : IPostRepository
                 p.ImageUrl,
                 p.LikesCount,
                 p.CommentsCount,
-                p.CreatedAt
+                p.CreatedAt,
+                (SELECT TOP 1 ReactionType FROM PostReactions WHERE PostId = p.PostId AND UserId = @CurrentUserId) AS CurrentUserReaction
             FROM Posts p
             INNER JOIN Users u
                 ON p.UserId = u.UserId
@@ -83,7 +85,8 @@ public class PostRepository : IPostRepository
             new
             {
                 Skip = skip,
-                PageSize = pageSize
+                PageSize = pageSize,
+                CurrentUserId = currentUserId
             });
 
         return posts.ToList();
@@ -284,11 +287,29 @@ public class PostRepository : IPostRepository
         ORDER BY pc.CreatedAt ASC
         """;
 
-        var comments =
-            await connection.QueryAsync<CommentDto>(
-                sql,
-                new { PostId = postId });
+        var comments = await connection.QueryAsync<CommentDto>(
+            sql,
+            new { PostId = postId });
 
         return comments.ToList();
+    }
+
+    public async Task<List<ReactionDto>> GetPostReactionsAsync(int postId)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = """
+            SELECT 
+                pr.UserId, 
+                u.FullName AS UserName, 
+                u.ProfilePictureUrl, 
+                pr.ReactionType 
+            FROM PostReactions pr
+            INNER JOIN Users u ON pr.UserId = u.UserId
+            WHERE pr.PostId = @PostId
+            ORDER BY pr.CreatedAt DESC
+            """;
+        
+        var reactions = await connection.QueryAsync<ReactionDto>(sql, new { PostId = postId });
+        return reactions.ToList();
     }
 }
