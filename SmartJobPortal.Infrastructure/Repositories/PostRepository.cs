@@ -127,10 +127,10 @@ public class PostRepository : IPostRepository
         using var connection =
             _factory.CreateConnection();
 
-        var existing =
-            await connection.QueryFirstOrDefaultAsync<int?>(
+        var existingReaction =
+            await connection.QueryFirstOrDefaultAsync<string>(
             """
-        SELECT PostReactionId
+        SELECT ReactionType
         FROM PostReactions
         WHERE PostId = @PostId
         AND UserId = @UserId
@@ -141,20 +141,37 @@ public class PostRepository : IPostRepository
                 UserId = userId
             });
 
-        if (existing.HasValue)
+        if (existingReaction != null)
         {
-            await connection.ExecuteAsync(
-            """
-        UPDATE PostReactions
-        SET ReactionType = @ReactionType
-        WHERE PostReactionId = @Id
-        """,
-            new
+            if (existingReaction == reactionType)
             {
-                Id = existing.Value,
-                ReactionType = reactionType
-            });
-
+                // Toggle off
+                await connection.ExecuteAsync(
+                """
+                DELETE FROM PostReactions
+                WHERE PostId = @PostId AND UserId = @UserId;
+                
+                UPDATE Posts
+                SET LikesCount = (SELECT COUNT(*) FROM PostReactions WHERE PostId = @PostId)
+                WHERE PostId = @PostId;
+                """,
+                new { PostId = postId, UserId = userId });
+            }
+            else
+            {
+                // Change reaction
+                await connection.ExecuteAsync(
+                """
+                UPDATE PostReactions
+                SET ReactionType = @ReactionType
+                WHERE PostId = @PostId AND UserId = @UserId;
+                
+                UPDATE Posts
+                SET LikesCount = (SELECT COUNT(*) FROM PostReactions WHERE PostId = @PostId)
+                WHERE PostId = @PostId;
+                """,
+                new { PostId = postId, UserId = userId, ReactionType = reactionType });
+            }
             return;
         }
 
@@ -173,7 +190,11 @@ public class PostRepository : IPostRepository
         @UserId,
         @ReactionType,
         GETUTCDATE()
-    )
+    );
+    
+    UPDATE Posts
+    SET LikesCount = (SELECT COUNT(*) FROM PostReactions WHERE PostId = @PostId)
+    WHERE PostId = @PostId;
     """,
         new
         {

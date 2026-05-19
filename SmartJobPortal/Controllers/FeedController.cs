@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartJobPortal.Application.Features.Feed.Commands.CreatePost;
@@ -57,8 +57,9 @@ public class FeedController : ControllerBase
     {
         command.PostId = postId;
 
-        command.UserId =
-            int.Parse(User.FindFirst("uid")!.Value);
+        command.UserId = int.Parse(
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier)!);
 
         var result =
             await _mediator.Send(command);
