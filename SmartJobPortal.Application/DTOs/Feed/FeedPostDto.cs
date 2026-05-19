@@ -29,4 +29,6 @@ public class FeedPostDto
     public string? CurrentUserReaction { get; set; }
 
     public int TotalReactions { get; set; }
+
+    public int TotalComments { get; set; }
 }

@@ -22,4 +22,10 @@ public interface IPostRepository
 
     Task<List<PostReactionDto>>
     GetReactionsAsync(int postId);
+
+    Task<int> CreateCommentAsync(
+    PostComment comment);
+
+    Task<List<CommentDto>>
+        GetCommentsAsync(int postId);
 }

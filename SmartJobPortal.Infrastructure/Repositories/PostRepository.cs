@@ -224,4 +224,71 @@ public class PostRepository : IPostRepository
 
         return reactions.ToList();
     }
+
+    public async Task<int> CreateCommentAsync(
+    PostComment comment)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var sql = """
+        INSERT INTO PostComments
+        (
+            PostId,
+            UserId,
+            ParentCommentId,
+            Content,
+            CreatedAt,
+            IsDeleted
+        )
+        VALUES
+        (
+            @PostId,
+            @UserId,
+            @ParentCommentId,
+            @Content,
+            @CreatedAt,
+            0
+        );
+
+        SELECT CAST(SCOPE_IDENTITY() as int);
+        """;
+
+        return await connection
+            .ExecuteScalarAsync<int>(
+                sql,
+                comment);
+    }
+
+
+    public async Task<List<CommentDto>>
+    GetCommentsAsync(int postId)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var sql = """
+        SELECT
+            pc.PostCommentId,
+            pc.PostId,
+            pc.UserId,
+            u.FullName AS UserName,
+            pc.Content,
+            pc.ParentCommentId,
+            pc.CreatedAt
+        FROM PostComments pc
+        INNER JOIN Users u
+            ON u.UserId = pc.UserId
+        WHERE pc.PostId = @PostId
+        AND pc.IsDeleted = 0
+        ORDER BY pc.CreatedAt ASC
+        """;
+
+        var comments =
+            await connection.QueryAsync<CommentDto>(
+                sql,
+                new { PostId = postId });
+
+        return comments.ToList();
+    }
 }
