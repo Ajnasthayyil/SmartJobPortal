@@ -25,7 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\Feed\Commands\AddComment\" />
     <Folder Include="Features\Feed\Commands\DeletePost\" />
     <Folder Include="Features\Feed\Commands\ToggleLike\" />
   </ItemGroup>

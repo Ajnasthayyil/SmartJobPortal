@@ -32,4 +32,17 @@ public interface IPostRepository
 
     Task<List<ReactionDto>> GetPostReactionsAsync(
         int postId);
+
+
+    Task<Post?> GetPostByIdAsync(int postId);
+
+    Task UpdatePostAsync(Post post);
+
+    Task<PostComment?> GetCommentByIdAsync(int commentId);
+
+    Task UpdateCommentAsync(PostComment comment);
+
+    Task DeletePostAsync(int postId);
+
+    Task DeleteCommentAsync(int commentId);
 }

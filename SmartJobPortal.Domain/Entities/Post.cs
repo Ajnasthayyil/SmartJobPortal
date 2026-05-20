@@ -15,4 +15,5 @@ public class Post
     public int CommentsCount { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 }

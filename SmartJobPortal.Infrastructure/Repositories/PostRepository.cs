@@ -312,4 +312,86 @@ public class PostRepository : IPostRepository
         var reactions = await connection.QueryAsync<ReactionDto>(sql, new { PostId = postId });
         return reactions.ToList();
     }
+
+    public async Task<Post?> GetPostByIdAsync(
+       int postId)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = "SELECT * FROM Posts WHERE PostId = @PostId";
+        return await connection.QueryFirstOrDefaultAsync<Post>(sql, new { PostId = postId });
+    }
+
+    public async Task UpdatePostAsync(
+     Post post)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = """
+            UPDATE Posts 
+            SET Content = @Content, 
+                ImageUrl = @ImageUrl 
+            WHERE PostId = @PostId
+            """;
+        await connection.ExecuteAsync(sql, post);
+    }
+
+    public async Task<PostComment?> GetCommentByIdAsync(
+        int commentId)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = "SELECT * FROM PostComments WHERE PostCommentId = @CommentId";
+        return await connection.QueryFirstOrDefaultAsync<PostComment>(sql, new { CommentId = commentId });
+    }
+
+    public async Task UpdateCommentAsync(
+        PostComment comment)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = """
+            UPDATE PostComments 
+            SET Content = @Content, 
+                UpdatedAt = @UpdatedAt 
+            WHERE PostCommentId = @PostCommentId
+            """;
+        await connection.ExecuteAsync(sql, comment);
+    }
+
+    public async Task DeletePostAsync(int postId)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = """
+            DELETE FROM PostReactions WHERE PostId = @PostId;
+            DELETE FROM PostComments WHERE PostId = @PostId AND ParentCommentId IS NOT NULL;
+            DELETE FROM PostComments WHERE PostId = @PostId;
+            DELETE FROM PostMedia WHERE PostId = @PostId;
+            DELETE FROM Posts WHERE PostId = @PostId;
+            """;
+        await connection.ExecuteAsync(sql, new { PostId = postId });
+    }
+
+    public async Task DeleteCommentAsync(int commentId)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = """
+            DECLARE @PostId INT;
+            SELECT @PostId = PostId FROM PostComments WHERE PostCommentId = @CommentId;
+
+            -- Soft-delete child replies first
+            UPDATE PostComments 
+            SET IsDeleted = 1 
+            WHERE ParentCommentId = @CommentId;
+
+            -- Soft-delete the comment itself
+            UPDATE PostComments 
+            SET IsDeleted = 1 
+            WHERE PostCommentId = @CommentId;
+
+            IF @PostId IS NOT NULL
+            BEGIN
+                UPDATE Posts
+                SET CommentsCount = (SELECT COUNT(*) FROM PostComments WHERE PostId = @PostId AND IsDeleted = 0)
+                WHERE PostId = @PostId;
+            END
+            """;
+        await connection.ExecuteAsync(sql, new { CommentId = commentId });
+    }
 }

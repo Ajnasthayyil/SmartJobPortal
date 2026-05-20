@@ -1,4 +1,4 @@
-﻿namespace SmartJobPortal.Domain.Entities;
+namespace SmartJobPortal.Domain.Entities;
 
 public class PostComment
 {
