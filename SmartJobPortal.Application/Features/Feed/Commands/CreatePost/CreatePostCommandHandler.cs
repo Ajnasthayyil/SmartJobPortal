@@ -25,6 +25,7 @@ public class CreatePostCommandHandler
         {
             UserId = request.UserId,
             Content = request.Content,
+            ImageUrl = request.Images.FirstOrDefault()?.Url,
             CreatedAt = DateTime.UtcNow
         };
 

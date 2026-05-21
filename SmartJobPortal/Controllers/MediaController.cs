@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartJobPortal.Application.Common;
+using SmartJobPortal.Application.DTOs.Feed;
 using SmartJobPortal.Application.Interfaces;
 
 namespace SmartJobPortal.API.Controllers;
@@ -19,14 +21,14 @@ public class MediaController : ControllerBase
     [Authorize]
     [HttpPost("upload")]
     public async Task<IActionResult> Upload(
-        IFormFile file)
+        [FromForm] IFormFile file)
     {
         var result =
             await _cloudinary.UploadImageAsync(file);
 
         if (result == null)
-            return BadRequest("Upload failed");
+            return BadRequest(ApiResponse<UploadedMediaDto>.Fail("Upload failed"));
 
-        return Ok(result);
+        return Ok(ApiResponse<UploadedMediaDto>.SuccessResponse(result, "File uploaded successfully"));
     }
 }
