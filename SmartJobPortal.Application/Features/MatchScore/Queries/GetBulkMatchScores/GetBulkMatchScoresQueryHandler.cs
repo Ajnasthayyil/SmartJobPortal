@@ -93,44 +93,49 @@ public class GetBulkMatchScoresQueryHandler : IRequestHandler<GetBulkMatchScores
         return ApiResponse<List<MatchScoreResponse>>.Ok(results);
     }
 
-    private SmartJobPortal.Domain.Entities.MatchScore CalculateInMemory(SmartJobPortal.Domain.Entities.Candidate candidate, HashSet<string> candidateSkills, List<string> candidateRoles, JobDetail job)
+    private SmartJobPortal.Domain.Entities.MatchScore CalculateInMemory(
+        SmartJobPortal.Domain.Entities.Candidate candidate,
+        HashSet<string> candidateSkills,
+        List<string> candidateRoles,
+        JobDetail job)
     {
         var jobSkills = job.RequiredSkills;
         var candidateSkillsList = candidateSkills.ToList();
-        
+
+        // FIX [1]: handle jobs with no required skills — don't return null, compute partial score
         var matched = new List<string>();
-        foreach (var js in jobSkills)
+        var missing = new List<string>();
+        decimal skillScore = 0m;
+
+        if (jobSkills.Count > 0)
         {
-            if (candidateSkillsList.Any(cs => _matcher.IsMatch(cs, js, out _)))
+            foreach (var js in jobSkills)
             {
-                matched.Add(js.ToLowerInvariant());
+                if (candidateSkillsList.Any(cs => _matcher.IsMatch(cs, js, out _)))
+                    matched.Add(js.ToLowerInvariant());
             }
+            missing    = jobSkills.Select(s => s.ToLowerInvariant()).Except(matched).ToList();
+            skillScore = Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2);
         }
-        
-        var missing = jobSkills.Select(s => s.ToLowerInvariant()).Except(matched).ToList();
 
-        var skillScore = jobSkills.Count > 0
-            ? Math.Round((decimal)matched.Count / jobSkills.Count * 100, 2)
-            : 0m;
-
-        var roleRelevance = _helper.CalculateRoleRelevance(job.Title, candidateRoles);
+        var roleRelevance  = _helper.CalculateRoleRelevance(job.Title, candidateRoles);
         var expSufficiency = job.MinExperienceYears == 0 ? 100m
             : Math.Min(Math.Round((decimal)candidate.ExperienceYears / job.MinExperienceYears * 100, 2), 100m);
-        
         var relevantExpScore = Math.Round((roleRelevance * expSufficiency) / 100m, 2);
 
-        var locationScore = string.Equals(candidate.Location?.Trim(), job.Location?.Trim(), StringComparison.OrdinalIgnoreCase) ? 100m : 0m;
+        // FIX [3]: use fuzzy location scoring (exact / contains / remote-friendly)
+        var locationScore = MatchScoreHelper.CalculateLocationScore(candidate.Location, job.Location);
 
         return new SmartJobPortal.Domain.Entities.MatchScore
         {
-            CandidateId = candidate.CandidateId,
-            JobId = job.JobId,
-            SkillScore = skillScore,
+            CandidateId     = candidate.CandidateId,
+            JobId           = job.JobId,
+            SkillScore      = skillScore,
             ExperienceScore = relevantExpScore,
-            LocationScore = locationScore,
-            TotalScore = Math.Round((skillScore * 0.6m) + (relevantExpScore * 0.3m) + (locationScore * 0.1m), 2),
-            MissingSkills = JsonSerializer.Serialize(missing),
-            CalculatedAt = DateTime.Now
+            LocationScore   = locationScore,
+            TotalScore      = Math.Round((skillScore * 0.6m) + (relevantExpScore * 0.3m) + (locationScore * 0.1m), 2),
+            MissingSkills   = JsonSerializer.Serialize(missing),
+            CalculatedAt    = DateTime.Now
         };
     }
 

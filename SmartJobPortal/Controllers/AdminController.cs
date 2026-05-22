@@ -10,6 +10,7 @@ using SmartJobPortal.Application.Features.Admin.Commands.ToggleJobStatus;
 using SmartJobPortal.Application.Features.Admin.Commands.UnblockUser;
 using SmartJobPortal.Application.Features.Admin.Commands.UpdateProfile;
 using SmartJobPortal.Application.Features.Admin.Queries.GetAllJobs;
+using SmartJobPortal.Application.Features.Admin.Queries.GetAllRecruiters;
 using SmartJobPortal.Application.Features.Admin.Queries.GetAllUsers;
 using SmartJobPortal.Application.Features.Admin.Queries.GetDashboard;
 using SmartJobPortal.Application.Features.Admin.Queries.GetPendingRecruiters;
@@ -78,7 +79,7 @@ public class AdminController : ControllerBase
     [HttpGet("recruiters")]
     public async Task<IActionResult> GetAllRecruiters()
     {
-        var result = await _mediator.Send(new GetAllUsersQuery("Recruiter", null));
+        var result = await _mediator.Send(new GetAllRecruitersQuery());
         return StatusCode(result.StatusCode, result);
     }
 
