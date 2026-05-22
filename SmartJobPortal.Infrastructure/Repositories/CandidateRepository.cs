@@ -114,8 +114,8 @@ public class CandidateRepository : ICandidateRepository
     {
         using var conn = _factory.CreateConnection();
         await conn.ExecuteAsync(@"
-            INSERT INTO CandidateEducation (CandidateId, Degree, Institution, GraduationYear)
-            VALUES (@CandidateId, @Degree, @Institution, @GraduationYear)", education);
+            INSERT INTO CandidateEducation (CandidateId, Degree, Institution, GraduationYear, FieldOfStudy)
+            VALUES (@CandidateId, @Degree, @Institution, @GraduationYear, @FieldOfStudy)", education);
     }
 
     public async Task AddExperienceAsync(List<CandidateExperience> experience)
@@ -137,7 +137,7 @@ public class CandidateRepository : ICandidateRepository
     {
         using var conn = _factory.CreateConnection();
         var rows = await conn.QueryAsync<CandidateEducation>("""
-            SELECT EducationId, CandidateId, Degree, Institution, GraduationYear
+            SELECT EducationId, CandidateId, Degree, Institution, GraduationYear, FieldOfStudy
             FROM CandidateEducation
             WHERE CandidateId = @CandidateId
             ORDER BY EducationId DESC
@@ -168,7 +168,7 @@ public class CandidateRepository : ICandidateRepository
             WHERE cs.CandidateId = @CandidateId;
 
             -- Education
-            SELECT EducationId, CandidateId, Degree, Institution, GraduationYear
+            SELECT EducationId, CandidateId, Degree, Institution, GraduationYear, FieldOfStudy
             FROM CandidateEducation
             WHERE CandidateId = @CandidateId
             ORDER BY EducationId DESC;

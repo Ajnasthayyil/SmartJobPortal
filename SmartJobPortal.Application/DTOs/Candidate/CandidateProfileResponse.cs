@@ -36,6 +36,7 @@ public class EducationResponse
     public string Degree { get; set; } = string.Empty;
     public string Institution { get; set; } = string.Empty;
     public string? GraduationYear { get; set; }
+    public string? FieldOfStudy { get; set; }
 }
 
 public class ExperienceResponse

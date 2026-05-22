@@ -87,7 +87,8 @@ public class GetCandidateProfileQueryHandler : IRequestHandler<GetCandidateProfi
                 EducationId = e.EducationId,
                 Degree = e.Degree,
                 Institution = e.Institution,
-                GraduationYear = e.GraduationYear
+                GraduationYear = e.GraduationYear,
+                FieldOfStudy = e.FieldOfStudy
             }).ToList(),
             WorkExperience = experience.Select(e => new ExperienceResponse
             {

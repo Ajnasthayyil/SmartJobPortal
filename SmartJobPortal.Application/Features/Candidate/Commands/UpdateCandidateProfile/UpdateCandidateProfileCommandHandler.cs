@@ -85,7 +85,8 @@ public class UpdateCandidateProfileCommandHandler : IRequestHandler<UpdateCandid
                     CandidateId = candidateId,
                     Degree = e.Degree,
                     Institution = e.Institution,
-                    GraduationYear = e.Duration // Frontend sends duration string
+                    GraduationYear = e.Duration, // Frontend sends duration string
+                    FieldOfStudy = e.FieldOfStudy
                 }).ToList();
                 await _candidateRepo.AddEducationAsync(eduRows);
             }
@@ -153,7 +154,8 @@ public class UpdateCandidateProfileCommandHandler : IRequestHandler<UpdateCandid
                 EducationId = e.EducationId,
                 Degree = e.Degree,
                 Institution = e.Institution,
-                GraduationYear = e.GraduationYear
+                GraduationYear = e.GraduationYear,
+                FieldOfStudy = e.FieldOfStudy
             }).ToList(),
             WorkExperience = experience.Select(e => new ExperienceResponse
             {
