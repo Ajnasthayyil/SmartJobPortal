@@ -4,6 +4,7 @@ using SmartJobPortal.Application.Interfaces;
 using SmartJobPortal.Infrastructure.Data;
 using SmartJobPortal.Infrastructure.Repositories;
 using SmartJobPortal.Infrastructure.Services;
+using SmartJobPortal.Infrastructure.HostedServices;
 
 namespace SmartJobPortal.Infrastructure;
 
@@ -34,10 +35,20 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
+
         
         // External AI Services
-        services.AddHttpClient<IHuggingFaceService, HuggingFaceParserService>();
-
+        // Register Affinda parsing service and its HttpClient
+        services.AddHttpClient<IAffindaParsingService, AffindaParsingService>(c =>
+        {
+            c.BaseAddress = new Uri(configuration["Affinda:BaseUrl"] ?? "https://api.affinda.com");
+            c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", configuration["Affinda:ApiKey"]);
+        });
+        // Register recruitment parsing repositories
+        services.AddScoped<IParsedResumeRepository, ParsedResumeRepository>();
+        // Register background parsing hosted service
+        services.AddHostedService<ResumeParsingHostedService>();
         return services;
     }
 }

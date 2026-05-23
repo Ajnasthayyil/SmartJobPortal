@@ -10,11 +10,14 @@ public class CreatePostCommandHandler
         ApiResponse<int>>
 {
     private readonly IPostRepository _repo;
+    private readonly IFeedHubService _feedHub;
 
     public CreatePostCommandHandler(
-        IPostRepository repo)
+        IPostRepository repo,
+        IFeedHubService feedHub)
     {
         _repo = repo;
+        _feedHub = feedHub;
     }
 
     public async Task<ApiResponse<int>> Handle(
@@ -44,6 +47,13 @@ public class CreatePostCommandHandler
                 .ToList();
 
             await _repo.AddMediaAsync(media);
+        }
+
+        // Fetch full DTO for broadcast
+        var postDto = await _repo.GetFeedPostByIdAsync(postId, request.UserId);
+        if (postDto != null)
+        {
+            await _feedHub.BroadcastNewPostAsync(postDto);
         }
 
         return ApiResponse<int>.SuccessResponse(

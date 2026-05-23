@@ -13,4 +13,6 @@ public class User
     public DateTime CreatedAt { get; set; }
     public string RoleName { get; set; } = string.Empty;
     public string? ProfilePictureUrl { get; set; }
+    public string? ResetToken { get; set; }
+    public DateTime? ResetTokenExpiry { get; set; }
 }

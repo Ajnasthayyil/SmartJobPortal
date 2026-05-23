@@ -20,7 +20,7 @@ public class UserRepository : IUserRepository
         {
             using var connection = _factory.CreateConnection();
 
-            var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
+            var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved, u.ResetToken, u.ResetTokenExpiry
                         FROM Users u
                         INNER JOIN Roles r ON u.RoleId = r.RoleId
                         WHERE u.Email = @Email";
@@ -120,5 +120,35 @@ public class UserRepository : IUserRepository
         using var connection = _factory.CreateConnection();
         var sql = "UPDATE Users SET ProfilePictureUrl = @Url WHERE UserId = @UserId";
         await connection.ExecuteAsync(sql, new { Url = url, UserId = userId });
+    }
+
+    public async Task SetResetTokenAsync(string email, string token, DateTime expiry)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = @"UPDATE Users 
+                    SET ResetToken = @Token, ResetTokenExpiry = @Expiry 
+                    WHERE Email = @Email";
+        await connection.ExecuteAsync(sql, new { Token = token, Expiry = expiry, Email = email });
+    }
+
+    public async Task<User?> GetByResetTokenAsync(string token)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
+                    FROM Users u
+                    INNER JOIN Roles r ON u.RoleId = r.RoleId
+                    WHERE u.ResetToken = @Token AND u.ResetTokenExpiry > GETUTCDATE()";
+        return await connection.QueryFirstOrDefaultAsync<User>(sql, new { Token = token });
+    }
+
+    public async Task UpdatePasswordAsync(int userId, string newPasswordHash)
+    {
+        using var connection = _factory.CreateConnection();
+        var sql = @"UPDATE Users 
+                    SET PasswordHash = @PasswordHash, 
+                        ResetToken = NULL, 
+                        ResetTokenExpiry = NULL 
+                    WHERE UserId = @UserId";
+        await connection.ExecuteAsync(sql, new { PasswordHash = newPasswordHash, UserId = userId });
     }
 }

@@ -122,4 +122,30 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Logged out successfully" });
     }
-}
+
+    // FORGOT PASSWORD
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        var result = await _mediator.Send(new SmartJobPortal.Application.Features.Auth.Commands.ForgotPassword.ForgotPasswordCommand(request));
+        
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    // RESET PASSWORD
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        var result = await _mediator.Send(new SmartJobPortal.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommand(request));
+        
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+}

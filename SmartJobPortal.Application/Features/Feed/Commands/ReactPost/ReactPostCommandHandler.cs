@@ -9,11 +9,14 @@ public class ReactPostCommandHandler
         ApiResponse<bool>>
 {
     private readonly IPostRepository _repo;
+    private readonly IFeedHubService _feedHub;
 
     public ReactPostCommandHandler(
-        IPostRepository repo)
+        IPostRepository repo,
+        IFeedHubService feedHub)
     {
         _repo = repo;
+        _feedHub = feedHub;
     }
 
     public async Task<ApiResponse<bool>> Handle(
@@ -24,6 +27,12 @@ public class ReactPostCommandHandler
             request.PostId,
             request.UserId,
             request.ReactionType);
+
+        var post = await _repo.GetPostByIdAsync(request.PostId);
+        if (post != null)
+        {
+            await _feedHub.BroadcastReactionUpdateAsync(request.PostId, post.LikesCount);
+        }
 
         return ApiResponse<bool>.Ok(
             true,

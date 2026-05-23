@@ -92,6 +92,42 @@ public class PostRepository : IPostRepository
         return posts.ToList();
     }
 
+    public async Task<FeedPostDto?> GetFeedPostByIdAsync(
+        int postId,
+        int? currentUserId = null)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var sql = """
+            SELECT
+                p.PostId,
+                p.UserId,
+                u.FullName AS UserName,
+                u.ProfilePictureUrl AS UserProfilePicture,
+                p.Content,
+                p.ImageUrl,
+                p.LikesCount,
+                p.CommentsCount,
+                p.CreatedAt,
+                (SELECT TOP 1 ReactionType FROM PostReactions WHERE PostId = p.PostId AND UserId = @CurrentUserId) AS CurrentUserReaction
+            FROM Posts p
+            INNER JOIN Users u
+                ON p.UserId = u.UserId
+            WHERE p.PostId = @PostId
+            """;
+
+        var post = await connection.QueryFirstOrDefaultAsync<FeedPostDto>(
+            sql,
+            new
+            {
+                PostId = postId,
+                CurrentUserId = currentUserId
+            });
+
+        return post;
+    }
+
     public async Task AddMediaAsync(
     List<PostMedia> media)
     {
@@ -292,6 +328,32 @@ public class PostRepository : IPostRepository
             new { PostId = postId });
 
         return comments.ToList();
+    }
+
+    public async Task<CommentDto?> GetCommentDtoByIdAsync(
+        int commentId)
+    {
+        using var connection =
+            _factory.CreateConnection();
+
+        var sql = """
+        SELECT
+            pc.PostCommentId,
+            pc.PostId,
+            pc.UserId,
+            u.FullName AS UserName,
+            pc.Content,
+            pc.ParentCommentId,
+            pc.CreatedAt
+        FROM PostComments pc
+        INNER JOIN Users u
+            ON u.UserId = pc.UserId
+        WHERE pc.PostCommentId = @CommentId
+        """;
+
+        return await connection.QueryFirstOrDefaultAsync<CommentDto>(
+            sql,
+            new { CommentId = commentId });
     }
 
     public async Task<List<ReactionDto>> GetPostReactionsAsync(int postId)

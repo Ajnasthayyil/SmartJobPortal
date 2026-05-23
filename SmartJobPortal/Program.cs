@@ -83,6 +83,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // ── API Services ───────────────────────────────────────────────
 builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
+builder.Services.AddScoped<IFeedHubService, FeedHubService>();
 builder.Services.AddScoped<DataSeeder>();
 
 
@@ -195,6 +196,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
-
-
+app.MapHub<FeedHub>("/hubs/feed");
 app.Run();
