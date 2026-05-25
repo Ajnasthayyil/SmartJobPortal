@@ -41,6 +41,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
         await _userRepo.SetResetTokenAsync(user.Email, otp, expiry);
 
+
         var emailBody = $@"
             <h3>Password Reset Request</h3>
             <p>Hi {user.FullName},</p>

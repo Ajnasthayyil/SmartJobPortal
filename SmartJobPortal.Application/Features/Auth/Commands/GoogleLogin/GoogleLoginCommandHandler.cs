@@ -43,7 +43,13 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Api
 
         if (user == null)
         {
-            var roleId = await _repo.GetRoleIdByName("Candidate");
+            var roleName = !string.IsNullOrEmpty(command.Request.Role) ? command.Request.Role : "Candidate";
+            if (roleName != "Candidate" && roleName != "Recruiter")
+            {
+                roleName = "Candidate";
+            }
+            
+            var roleId = await _repo.GetRoleIdByName(roleName);
 
             user = new User
             {
