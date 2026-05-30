@@ -134,7 +134,7 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByResetTokenAsync(string token)
     {
         using var connection = _factory.CreateConnection();
-        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved
+        var sql = @"SELECT u.UserId, u.FullName, u.Email, u.PasswordHash, u.PhoneNumber, u.RoleId, r.RoleName, u.ProfilePictureUrl, u.IsApproved, u.ResetToken, u.ResetTokenExpiry
                     FROM Users u
                     INNER JOIN Roles r ON u.RoleId = r.RoleId
                     WHERE u.ResetToken = @Token AND u.ResetTokenExpiry > GETUTCDATE()";

@@ -2,50 +2,53 @@ using MediatR;
 using SmartJobPortal.Application.Common;
 using SmartJobPortal.Application.DTOs.Auth;
 using SmartJobPortal.Application.Interfaces;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace SmartJobPortal.Application.Features.Auth.Commands.ResetPassword;
-
-public record ResetPasswordCommand(
-    ResetPasswordRequest Request
-) : IRequest<ApiResponse<string>>;
-
-public class ResetPasswordCommandHandler
-    : IRequestHandler<ResetPasswordCommand, ApiResponse<string>>
+namespace SmartJobPortal.Application.Features.Auth.Commands.ResetPassword
 {
-    private readonly IUserRepository _userRepo;
+    public record ResetPasswordCommand(ResetPasswordRequest Request) : IRequest<ApiResponse<string>>;
 
-    public ResetPasswordCommandHandler(
-        IUserRepository userRepo)
+    public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, ApiResponse<string>>
     {
-        _userRepo = userRepo;
-    }
+        private readonly IUserRepository _userRepo;
 
-    public async Task<ApiResponse<string>> Handle(
-        ResetPasswordCommand request,
-        CancellationToken cancellationToken)
-    {
-        if (request.Request.NewPassword != request.Request.ConfirmPassword)
+        public ResetPasswordCommandHandler(IUserRepository userRepo)
         {
-            return ApiResponse<string>.Fail("Passwords do not match.");
+            _userRepo = userRepo;
         }
 
-        var user = await _userRepo.GetByEmailAsync(request.Request.Email);
-
-        if (user == null || user.ResetToken != request.Request.Otp || user.ResetTokenExpiry < DateTime.UtcNow)
+        public async Task<ApiResponse<string>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
         {
-            return ApiResponse<string>.Fail(
-                "Invalid or expired verification code.");
+            if (request.Request.NewPassword != request.Request.ConfirmPassword)
+            {
+                return ApiResponse<string>.Fail("New password and confirmation password do not match.");
+            }
+
+            var user = await _userRepo.GetByEmailAsync(request.Request.Email);
+            if (user == null)
+            {
+                return ApiResponse<string>.Fail("No account found with that email address.");
+            }
+
+            if (string.IsNullOrEmpty(user.ResetToken) || user.ResetToken != request.Request.Otp)
+            {
+                return ApiResponse<string>.Fail("Invalid verification code. Please check your email and try again.");
+            }
+
+            if (user.ResetTokenExpiry == null || user.ResetTokenExpiry < DateTime.UtcNow)
+            {
+                return ApiResponse<string>.Fail("Verification code has expired. Please request a new password reset.");
+            }
+
+            // Securely hash the new password using BCrypt
+            var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Request.NewPassword);
+
+            // Update user password and clear token columns in database
+            await _userRepo.UpdatePasswordAsync(user.UserId, newPasswordHash);
+
+            return ApiResponse<string>.Ok(null, "Password has been successfully reset. You can now log in with your new password.");
         }
-
-        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(
-            request.Request.NewPassword);
-
-        await _userRepo.UpdatePasswordAsync(
-            user.UserId,
-            newPasswordHash);
-
-        return ApiResponse<string>.Ok(
-            null,
-            "Password has been reset successfully.");
     }
 }

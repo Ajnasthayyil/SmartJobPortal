@@ -29,8 +29,10 @@ public static class DependencyInjection
         services.AddScoped<IAdminRepository, AdminRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IPostRepository, PostRepository>();
+        services.AddScoped<IChatbotRepository, ChatbotRepository>();
 
         // ── Services ────────────────────────────────────────────────
+        services.AddScoped<IChatbotService, ChatbotService>();
         services.AddScoped<IPhotoService, PhotoService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<INotificationService, NotificationService>();

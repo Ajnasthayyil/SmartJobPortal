@@ -124,16 +124,40 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
             {
                 resumeDto.Skills = affindaResult.Skills;
                 await MergeSkillsAsync(candidateId, affindaResult.Skills);
+                
+                var resumeSkills = affindaResult.Skills.Select(s => new ResumeSkill 
+                { 
+                    SkillName = s, 
+                    ProficiencyLevel = "Intermediate" 
+                });
+                await _parsedResumeRepo.SaveSkillsAsync(parsedResume.ParsedResumeId, resumeSkills);
             }
             if (affindaResult.Education != null && affindaResult.Education.Any())
             {
                 resumeDto.Education = affindaResult.Education;
                 await MergeEducationAsync(candidateId, affindaResult.Education);
+                
+                var resumeEducations = affindaResult.Education.Select(e => new ResumeEducation
+                {
+                    Institution = e.Institution,
+                    Degree = e.Degree,
+                    GraduationYear = e.Year
+                });
+                await _parsedResumeRepo.SaveEducationsAsync(parsedResume.ParsedResumeId, resumeEducations);
             }
             if (affindaResult.WorkExperience != null && affindaResult.WorkExperience.Any())
             {
                 resumeDto.WorkExperience = affindaResult.WorkExperience;
                 await MergeExperienceAsync(candidateId, affindaResult.WorkExperience);
+                
+                var resumeExperiences = affindaResult.WorkExperience.Select(e => new ResumeExperience
+                {
+                    Role = e.Role,
+                    Company = e.Company,
+                    Duration = e.Duration,
+                    Description = e.Description
+                });
+                await _parsedResumeRepo.SaveExperiencesAsync(parsedResume.ParsedResumeId, resumeExperiences);
             }
             
             parsedResume.Status = "Completed";

@@ -123,7 +123,6 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Logged out successfully" });
     }
 
-    // FORGOT PASSWORD
     [AllowAnonymous]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
@@ -136,7 +135,6 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    // RESET PASSWORD
     [AllowAnonymous]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
