@@ -188,12 +188,9 @@ using (var scope = app.Services.CreateScope())
 //  Swagger 
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseCors("AllowAll");
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<FeedHub>("/hubs/feed");

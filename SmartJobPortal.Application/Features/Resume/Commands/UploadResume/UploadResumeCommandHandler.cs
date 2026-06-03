@@ -19,8 +19,7 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
     private readonly IUserRepository _userRepo;
     private readonly ICacheService _cache;
     private readonly IConfiguration _config;
-    private readonly IParsedResumeRepository _parsedResumeRepo;
-    private readonly IAffindaParsingService _affindaService;
+    private readonly IGeminiService _gemini;
 
     private readonly ResumeFileValidator _validator;
     private readonly ResumeSkillExtractor _extractor;
@@ -30,16 +29,13 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         IUserRepository userRepo,
         ICacheService cache,
         IConfiguration config,
-        IParsedResumeRepository parsedResumeRepo,
-        IAffindaParsingService affindaService)
-
+        IGeminiService gemini)
     {
         _candidateRepo = candidateRepo;
         _userRepo = userRepo;
-        _parsedResumeRepo = parsedResumeRepo;
-        _affindaService = affindaService;
         _cache = cache;
         _config = config;
+        _gemini = gemini;
 
         _validator = new ResumeFileValidator();
         _extractor = new ResumeSkillExtractor();
@@ -55,8 +51,38 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         if (!isValid)
             return ApiResponse<ResumeParseResponse>.Fail(validationError ?? "Validation failed.");
 
-        // Local text extraction removed to prevent blocking complex PDFs.
-        // File validation is sufficient. Affinda will handle text extraction.
+        // ── Layer 2: Extract raw text ────────────────────────────
+        string rawText;
+        try
+        {
+            rawText = await ExtractTextAsync(file);
+        }
+        catch (Exception)
+        {
+            return ApiResponse<ResumeParseResponse>.Fail(
+                "Could not read the file. Ensure it is a valid PDF or DOCX.");
+        }
+
+        // ── Layer 3: Sanitise (kills prompt injections) ──────────
+        var sanitisedText = ResumeTextSanitiser.Sanitise(rawText);
+
+        if (string.IsNullOrWhiteSpace(sanitisedText) || ResumeTextSanitiser.IsSuspicious(sanitisedText))
+        {
+            return ApiResponse<ResumeParseResponse>.Fail(
+                "Your resume content appears invalid or suspicious. " +
+                "Please upload a standard resume document.");
+        }
+
+        // ── Layer 4: Hybrid Extraction ───────────────────────────
+        var extraction = _extractor.Extract(sanitisedText);
+        if (!extraction.IsValidResume)
+        {
+            return ApiResponse<ResumeParseResponse>.Fail(
+                "This document does not appear to be a resume. " +
+                "Please upload a resume with your professional experience.");
+        }
+
+        var aiData = await _gemini.ExtractStructuredDataAsync(sanitisedText);
 
         // ── Save file ────────────────────────────────────────────
         var storagePath = _config["ResumeStorage:Path"] ?? "uploads/resumes";
@@ -72,8 +98,6 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
             await file.CopyToAsync(stream);
         }
 
-
-
         // ── Update or Create records ────────────────────────────
         var existingCandidate = await _candidateRepo.GetByUserIdAsync(userId);
         var candidate = existingCandidate ?? new SmartJobPortal.Domain.Entities.Candidate { UserId = userId };
@@ -83,106 +107,73 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         candidate.ResumeOriginalName = SanitiseFileName(file.FileName);
         candidate.ResumeUploadedAt = DateTime.Now;
 
+        if (aiData != null && user != null)
+        {
+            var newName = !string.IsNullOrEmpty(aiData.FullName) ? aiData.FullName : user.FullName;
+            var newPhone = !string.IsNullOrEmpty(aiData.Phone) ? aiData.Phone : user.PhoneNumber;
+            
+            if (newName != user.FullName || newPhone != user.PhoneNumber)
+            {
+                await _userRepo.UpdateProfileAsync(userId, newName, newPhone);
+                user = await _userRepo.GetByIdAsync(userId);
+            }
+        }
+
+        var finalExp = aiData?.TotalExperience > 0 ? aiData.TotalExperience : extraction.ExperienceYears;
+        if (finalExp > 0 && candidate.ExperienceYears == 0)
+            candidate.ExperienceYears = (int)finalExp;
+
         var candidateId = await _candidateRepo.UpsertAsync(candidate);
         candidate.CandidateId = candidateId;
 
-        // Insert ParsedResume entry with proper CandidateId
-        var parsedResume = new ParsedResume
+        // ── Merge Data ──────────────────────────────────────────
+        var allSkills = new HashSet<string>(extraction.Skills, StringComparer.OrdinalIgnoreCase);
+        if (aiData?.Skills != null)
         {
-            CandidateId = candidateId,
-            FileName = file.FileName,
-            FilePath = filePath,
-            Status = "Pending",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        await _parsedResumeRepo.CreateAsync(parsedResume);
-
-        // ── Parse with Affinda synchronously ────────────────────────────
-        var affindaResult = await _affindaService.ParseAsync(filePath, cancellationToken);
-        
-        var resumeDto = new ResumeDto
-        {
-            FullName = user?.FullName ?? candidate.ResumeOriginalName,
-            Email = user?.Email,
-            Phone = user?.PhoneNumber,
-            LinkedIn = candidate.LinkedInUrl,
-            GitHub = candidate.GitHubUrl,
-            LeetCode = candidate.LeetCodeUrl,
-            Skills = new(),
-            Education = new(),
-            WorkExperience = new()
-        };
-
-        if (affindaResult != null)
-        {
-            if (!string.IsNullOrEmpty(affindaResult.FullName)) resumeDto.FullName = affindaResult.FullName;
-            if (!string.IsNullOrEmpty(affindaResult.Email)) resumeDto.Email = affindaResult.Email;
-            if (!string.IsNullOrEmpty(affindaResult.Phone)) resumeDto.Phone = affindaResult.Phone;
-            
-            if (affindaResult.Skills != null && affindaResult.Skills.Any())
-            {
-                resumeDto.Skills = affindaResult.Skills;
-                await MergeSkillsAsync(candidateId, affindaResult.Skills);
-                
-                var resumeSkills = affindaResult.Skills.Select(s => new ResumeSkill 
-                { 
-                    SkillName = s, 
-                    ProficiencyLevel = "Intermediate" 
-                });
-                await _parsedResumeRepo.SaveSkillsAsync(parsedResume.ParsedResumeId, resumeSkills);
-            }
-            if (affindaResult.Education != null && affindaResult.Education.Any())
-            {
-                resumeDto.Education = affindaResult.Education;
-                await MergeEducationAsync(candidateId, affindaResult.Education);
-                
-                var resumeEducations = affindaResult.Education.Select(e => new ResumeEducation
-                {
-                    Institution = e.Institution,
-                    Degree = e.Degree,
-                    GraduationYear = e.Year
-                });
-                await _parsedResumeRepo.SaveEducationsAsync(parsedResume.ParsedResumeId, resumeEducations);
-            }
-            if (affindaResult.WorkExperience != null && affindaResult.WorkExperience.Any())
-            {
-                resumeDto.WorkExperience = affindaResult.WorkExperience;
-                await MergeExperienceAsync(candidateId, affindaResult.WorkExperience);
-                
-                var resumeExperiences = affindaResult.WorkExperience.Select(e => new ResumeExperience
-                {
-                    Role = e.Role,
-                    Company = e.Company,
-                    Duration = e.Duration,
-                    Description = e.Description
-                });
-                await _parsedResumeRepo.SaveExperiencesAsync(parsedResume.ParsedResumeId, resumeExperiences);
-            }
-            
-            parsedResume.Status = "Completed";
-            parsedResume.ParsedJson = System.Text.Json.JsonSerializer.Serialize(affindaResult);
-            parsedResume.UpdatedAt = DateTime.UtcNow;
-            await _parsedResumeRepo.UpdateAsync(parsedResume);
+            foreach (var s in aiData.Skills) allSkills.Add(s);
         }
-        else
-        {
-            parsedResume.Status = "Failed";
-            parsedResume.ErrorMessage = "Affinda returned null";
-            parsedResume.UpdatedAt = DateTime.UtcNow;
-            await _parsedResumeRepo.UpdateAsync(parsedResume);
-        }
+
+        if (allSkills.Any())
+            await MergeSkillsAsync(candidateId, allSkills.ToList());
+
+        if (aiData?.Education?.Any() == true)
+            await MergeEducationAsync(candidateId, aiData.Education);
+
+        if (aiData?.WorkExperience?.Any() == true)
+            await MergeExperienceAsync(candidateId, aiData.WorkExperience);
 
         await _cache.RemoveAsync($"candidate:profile:{userId}");
 
         return ApiResponse<ResumeParseResponse>.Ok(new ResumeParseResponse
         {
-            Message = "Resume uploaded and parsed successfully.",
-            ParsedData = resumeDto
-        }, "Resume uploaded and parsed successfully.");
+            Message = "Resume processed with AI enhancement.",
+            ParsedData = new ResumeDto
+            {
+                FullName = user?.FullName ?? candidate.ResumeOriginalName,
+                Email = user?.Email ?? aiData?.Email ?? extraction.Email,
+                Phone = user?.PhoneNumber ?? aiData?.Phone,
+                Skills = allSkills.ToList(),
+                TotalExperience = finalExp,
+                Education = aiData?.Education ?? new(),
+                WorkExperience = aiData?.WorkExperience ?? new()
+            }
+        }, "Resume processed successfully.");
     }
 
-
+    private static async Task<string> ExtractTextAsync(IFormFile file)
+    {
+        await using var stream = file.OpenReadStream();
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext == ".pdf")
+        {
+            using var doc = PdfDocument.Open(stream);
+            var sb = new StringBuilder();
+            foreach (var page in doc.GetPages()) sb.AppendLine(page.Text);
+            return sb.ToString();
+        }
+        using var wordDoc = WordprocessingDocument.Open(stream, false);
+        return wordDoc.MainDocumentPart?.Document?.Body?.InnerText ?? string.Empty;
+    }
 
     private async Task MergeSkillsAsync(int candidateId, List<string> skills)
     {
@@ -203,12 +194,12 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         var toAdd = education
             .Where(e => !string.IsNullOrEmpty(e.Degree) && !existing.Contains(e.Degree.ToLower()))
             .Select(e => new CandidateEducation
-        {
-            CandidateId = candidateId,
-            Degree = e.Degree ?? string.Empty,
-            Institution = e.Institution ?? string.Empty,
-            GraduationYear = e.Year ?? string.Empty
-        }).ToList();
+            {
+                CandidateId = candidateId,
+                Degree = e.Degree ?? string.Empty,
+                Institution = e.Institution ?? string.Empty,
+                GraduationYear = e.Year ?? string.Empty
+            }).ToList();
         if (toAdd.Any()) await _candidateRepo.AddEducationAsync(toAdd);
     }
 
@@ -221,13 +212,13 @@ public class UploadResumeCommandHandler : IRequestHandler<UploadResumeCommand, A
         var toAdd = experience
             .Where(e => !string.IsNullOrEmpty(e.Role) && !existing.Contains(e.Role.ToLower()))
             .Select(e => new CandidateExperience
-        {
-            CandidateId = candidateId,
-            Company = e.Company ?? string.Empty,
-            Role = e.Role ?? string.Empty,
-            Duration = e.Duration ?? string.Empty,
-            Description = e.Description ?? string.Empty
-        }).ToList();
+            {
+                CandidateId = candidateId,
+                Company = e.Company ?? string.Empty,
+                Role = e.Role ?? string.Empty,
+                Duration = e.Duration ?? string.Empty,
+                Description = e.Description ?? string.Empty
+            }).ToList();
         if (toAdd.Any()) await _candidateRepo.AddExperienceAsync(toAdd);
     }
 
